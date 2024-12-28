@@ -1,0 +1,8 @@
+# Python venv
+/myenv
+
+# Logs
+*.parquet
+
+# MacOS Garbage files
+.DS_Store
