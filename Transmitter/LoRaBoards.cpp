@@ -8,6 +8,7 @@
  */
 
 #include "LoRaBoards.h"
+#include "esp_mac.h"
 
 #include "soc/rtc.h"
 #ifdef ENABLE_BLE
@@ -492,7 +493,7 @@ bool beginSDCard()
 void beginWiFi()
 {
 #ifdef ARDUINO_ARCH_ESP32
-    if (!WiFi.softAP(BOARD_VARIANT_NAME)) {
+    if (!WiFi.softAP("MSU SRT T-Beam Transmitter", "12345678")) {
         log_e("Soft AP creation failed.");
     }
     IPAddress myIP = WiFi.softAPIP();
@@ -614,7 +615,7 @@ void setupBoards(bool disable_u8g2 )
 {
     Serial.begin(115200);
 
-    // while (!Serial);
+    while (!Serial);
 
     Serial.println("setupBoards");
 
@@ -721,14 +722,15 @@ void setupBoards(bool disable_u8g2 )
         beginDisplay();
     }
 
-    // beginWiFi();
+    beginWiFi();
 
 #ifdef FAN_CTRL
     pinMode(FAN_CTRL, OUTPUT);
 #endif
 
 #ifdef HAS_GPS
-    find_gps = beginGPS();
+    // find_gps = beginGPS(); T-Beam v1.2 does not have L76K
+    find_gps = false;
     uint32_t baudrate[] = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 4800};
     if (!find_gps) {
         // Restore factory settings

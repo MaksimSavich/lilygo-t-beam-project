@@ -11,7 +11,7 @@ new_settings = {
     "frequency": 915.0,
     "power": 22,
     "bandwidth": 500.0,
-    "spreading_factor": 8,
+    "spreading_factor": 7,
     "coding_rate": 5,
     "preamble": 8,
     "set_crc": True,
@@ -29,7 +29,7 @@ def send_settings(serial_port, settings):
 def main():
     # Open the serial connection
     with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
-        time.sleep(2)  # Allow some time for the connection to establish
+        # time.sleep(5)  # Allow some time for the connection to establish
 
         # Send the settings
         send_settings(ser, new_settings)

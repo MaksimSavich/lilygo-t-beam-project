@@ -9,15 +9,7 @@
 
 #pragma once
 
-
 #include "utilities.h"
-
-// Additional includes
-#include "esp_mac.h"
-#include <TinyGPS++.h>
-#include <LittleFS.h>
-#include <ArduinoJson.h>
-
 
 #if defined(ARDUINO_ARCH_ESP32)  
 #include <FS.h>

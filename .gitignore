@@ -1,5 +1,5 @@
 # Python venv
-/myenv
+myenv
 
 # Logs
 *.parquet
