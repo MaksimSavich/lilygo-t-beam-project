@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+message Settings {
+  float frequency = 1;
+  int32 power = 2;
+  float bandwidth = 3;
+  int32 spreading_factor = 4;
+  int32 coding_rate = 5;
+  int32 preamble = 6;
+  bool set_crc = 7;
+  uint32 sync_word = 8;
+}

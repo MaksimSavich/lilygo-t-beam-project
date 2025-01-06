@@ -2,114 +2,133 @@
 
 void initializeSettings(Settings& settings, SX1262& radio) {
     // Initialize LittleFS
-    if (!LittleFS.begin(true)) {  // Format LittleFS if mounting fails
+    if (!LittleFS.begin(true)) {
         Serial.println("Failed to initialize LittleFS");
         while (true);
     }
     Serial.println("LittleFS initialized successfully");
 
-    File file = LittleFS.open("/settings.json", FILE_READ);
+    File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_READ);
 
     if (!file) {
         // If the file doesn't exist, create it with default settings
         Serial.println("Settings file not found. Creating with default values...");
 
-        StaticJsonDocument<256> doc;
-        doc["frequency"] = CONFIG_RADIO_FREQ;
-        doc["power"] = CONFIG_RADIO_OUTPUT_POWER;
-        doc["bandwidth"] = CONFIG_RADIO_BW;
-        doc["spreading_factor"] = CONFIG_RADIO_SF;
-        doc["coding_rate"] = CONFIG_RADIO_CR;
-        doc["preamble"] = CONFIG_RADIO_PREAMBLE;
-        doc["set_crc"] = CONFIG_RADIO_SETCRC;
-        doc["sync_word"] = CONFIG_RADIO_SW;
+        settings.frequency = CONFIG_RADIO_FREQ;
+        settings.power = CONFIG_RADIO_OUTPUT_POWER;
+        settings.bandwidth = CONFIG_RADIO_BW;
+        settings.spreading_factor = CONFIG_RADIO_SF;
+        settings.coding_rate = CONFIG_RADIO_CR;
+        settings.preamble = CONFIG_RADIO_PREAMBLE;
+        settings.set_crc = CONFIG_RADIO_SETCRC;
+        settings.sync_word = CONFIG_RADIO_SW;
 
-        // Save the default settings to a new file
-        saveSettingsToFile(doc);
-        
+        saveSettingsToFile(settings);
     } else {
-        // If the file exists, load the settings
         Serial.println("Settings file found. Loading values...");
         file.close();
     }
+
     loadSettingsFromFile(settings);
-    configureLoRaSettings(settings, radio); // Apply the settings to the LoRa radio module
+    configureLoRaSettings(settings, radio);
 }
 
-
 void loadSettingsFromFile(Settings& settings) {
-    File file = LittleFS.open("/settings.json", FILE_READ);
+    File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_READ);
     if (!file) {
-        Serial.println("Failed to open /settings.json for reading");
+        Serial.println("Failed to open settings file for reading");
         return;
     }
 
-    StaticJsonDocument<256> doc;
-    DeserializationError error = deserializeJson(doc, file);
+    // Read binary data
+    uint8_t buffer[file.size()];
+    file.read(buffer, file.size());
+    file.close();
 
-    if (error) {
-        Serial.print("Failed to parse JSON: ");
-        Serial.println(error.c_str());
+    // Deserialize Protobuf data
+    pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
+    if (!pb_decode(&stream, &Settings_msg, &settings)) {
+        Serial.println("Failed to decode settings");
+        return;
+    }
+}
+
+void saveSettingsToFile(const Settings& settings) {
+    File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_WRITE);
+    if (!file) {
+        Serial.println("Failed to open settings file for writing");
+        return;
+    }
+
+    // Serialize Protobuf data
+    uint8_t buffer[Settings_size];
+    pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+    if (!pb_encode(&stream, &Settings_msg, &settings)) {
+        Serial.println("Failed to encode settings");
         file.close();
         return;
     }
 
-    settings.frequency = doc["frequency"];
-    settings.power = doc["power"];
-    settings.bandwidth = doc["bandwidth"];
-    settings.spreading_factor = doc["spreading_factor"];
-    settings.coding_rate = doc["coding_rate"];
-    settings.preamble = doc["preamble"];
-    settings.set_crc = doc["set_crc"];
-    settings.sync_word = doc["sync_word"];
+    file.write(buffer, stream.bytes_written);
     file.close();
-}
-
-void saveSettingsToFile(const StaticJsonDocument<256>& doc) {
-    File file = LittleFS.open("/settings.json", FILE_WRITE);
-    if (!file) {
-        Serial.println("Failed to open /settings.json for writing");
-        return;
-    }
-
-    // Serialize the JSON document to the file
-    if (serializeJson(doc, file) == 0) {
-        Serial.println("Failed to write JSON to file");
-    } else {
-        Serial.println("Settings successfully written to /settings.json");
-    }
-    file.close();
+    Serial.println("Settings successfully written");
 }
 
 void readSettings() {
-    // Attempt to open the file in read mode
     File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_READ);
     if (!file) {
-        Serial.print("Failed to open file: ");
-        Serial.println(CONFIG_RADIO_SETTINGS_FILE);
+        Serial.println("Failed to open settings file for reading");
         return;
     }
 
-    Serial.print("Contents of ");
-    Serial.print(CONFIG_RADIO_SETTINGS_FILE);
-    Serial.println(":");
+    uint8_t buffer[file.size()];
+    file.read(buffer, file.size());
+    file.close();
 
-    // Read the file line by line or character by character
-    while (file.available()) {
-        Serial.write(file.read());
+    // Deserialize Protobuf data
+    Settings settings = Settings_init_zero;
+    pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
+    if (!pb_decode(&stream, &Settings_msg, &settings)) {
+        Serial.println("Failed to decode settings");
+        return;
     }
-    Serial.println();  // Print a new line after file content
 
-    file.close();  // Always close the file when done
+    // Print settings values
+    Serial.println("Settings file contents:");
+    Serial.print("Frequency: ");
+    Serial.println(settings.frequency);
+    Serial.print("Power: ");
+    Serial.println(settings.power);
+    Serial.print("Bandwidth: ");
+    Serial.println(settings.bandwidth);
+    Serial.print("Spreading Factor: ");
+    Serial.println(settings.spreading_factor);
+    Serial.print("Coding Rate: ");
+    Serial.println(settings.coding_rate);
+    Serial.print("Preamble: ");
+    Serial.println(settings.preamble);
+    Serial.print("Set CRC: ");
+    Serial.println(settings.set_crc ? "True" : "False");
+    Serial.print("Sync Word: ");
+    Serial.println(settings.sync_word);
 }
 
 void configureLoRaSettings(const Settings& settings, SX1262& radio) {
-    if (radio.setFrequency(settings.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY) Serial.println("Error: Selected frequency is invalid for this module!");
-    if (radio.setOutputPower(settings.power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER) Serial.println("Error: Selected output power is invalid for this module!");
-    if (radio.setBandwidth(settings.bandwidth) == RADIOLIB_ERR_INVALID_BANDWIDTH) Serial.println("Error: Selected bandwidth is invalid for this module!");
-    if (radio.setSpreadingFactor(settings.spreading_factor) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) Serial.println("Error: Selected spreading factor is invalid for this module!");
-    if (radio.setCodingRate(settings.coding_rate) == RADIOLIB_ERR_INVALID_CODING_RATE) Serial.println("Error: Selected coding rate is invalid for this module!");
-    if (radio.setPreambleLength(settings.preamble) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) Serial.println("Error: Selected preamble length is invalid for this module!");
-    if (radio.setCRC(settings.set_crc) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION) Serial.println("Error: Selected CRC is invalid for this module!");
-    if (radio.setSyncWord(settings.sync_word) != RADIOLIB_ERR_NONE) Serial.println("Error: Unable to set sync word!");
+    if (radio.setFrequency(settings.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
+        Serial.println("Error: Selected frequency is invalid for this module!");
+    if (radio.setOutputPower(settings.power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
+        Serial.println("Error: Selected output power is invalid for this module!");
+    if (radio.setBandwidth(settings.bandwidth) == RADIOLIB_ERR_INVALID_BANDWIDTH)
+        Serial.println("Error: Selected bandwidth is invalid for this module!");
+    if (radio.setSpreadingFactor(settings.spreading_factor) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
+        Serial.println("Error: Selected spreading factor is invalid for this module!");
+    if (radio.setCodingRate(settings.coding_rate) == RADIOLIB_ERR_INVALID_CODING_RATE)
+        Serial.println("Error: Selected coding rate is invalid for this module!");
+    if (radio.setPreambleLength(settings.preamble) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH)
+        Serial.println("Error: Selected preamble length is invalid for this module!");
+    if (radio.setCRC(settings.set_crc) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION)
+        Serial.println("Error: Selected CRC is invalid for this module!");
+    if (radio.setSyncWord(settings.sync_word) != RADIOLIB_ERR_NONE)
+        Serial.println("Error: Unable to set sync word!");
 }
