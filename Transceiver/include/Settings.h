@@ -5,7 +5,8 @@
 #include "pb.h"
 #include "pb_encode.h"
 #include "pb_decode.h"
-#include "settings.pb.h"
+#include "pb_common.h"
+#include "packet.pb.h"
 
 #define CONFIG_RADIO_FREQ           915.0
 #define CONFIG_RADIO_OUTPUT_POWER   22

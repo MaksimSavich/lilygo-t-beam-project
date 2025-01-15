@@ -1,27 +1,14 @@
 import packet_pb2
-import serial
 import time
+import serial
 
-# Create a Settings object
 packet = packet_pb2.Packet()
-packet.type = packet_pb2.SETTINGS
-packet.settings.frequency = 915.0
-packet.settings.power = 21
-packet.settings.bandwidth = 500.0
-packet.settings.spreading_factor = 7
-packet.settings.coding_rate = 5
-packet.settings.preamble = 8
-packet.settings.set_crc = True
-packet.settings.sync_word = 0xAB
+packet.type = packet_pb2.TRANSMISSION
+packet.transmission.payload = b'Hello, LoRa!'
 
-print(packet)
-
-# Serialize to binary
+# Serialize
 serialized_data = packet.SerializeToString()
-
-print("Serialized data:", serialized_data)
-print("Serialized data length:", len(serialized_data))
-
+print("Serialized Data:", serialized_data)
 
 # Send over serial and monitor output
 with serial.Serial('/dev/tty.usbserial-576E1296581', 115200, timeout=1) as ser:

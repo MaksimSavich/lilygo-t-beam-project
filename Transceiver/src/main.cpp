@@ -10,6 +10,10 @@
 #include <Arduino.h>
 #include <RadioLib.h>
 #include <TinyGPS++.h>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 #include "LoRaBoards.h"
 #include "Settings.h"
 
@@ -23,22 +27,13 @@ SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUS
 //     uint8_t num_satellites;    // 1 byte: Number of satellites
 // };
 
-// struct Command {
-//     uint8_t arbID;   // First byte is Arb ID
-//     uint8_t payloadSize;  // Second byte is Payload Size
-//     String payload;  // Extract payload
-//     volatile bool packetReady;
-//     String receivedPacket;
-// };
 
-// enum NodeState {
-//     STANDBY,
-//     SETTINGS_UPDATE,
-//     TESTING
-// };
+enum NodeState {
+    STANDBY,
+    TESTING
+};
 
-// NodeState currentState = STANDBY;  // Initial state
-// Command command;
+NodeState currentState = STANDBY;  // Initial state
 
 // Vars
 // DataPacket packet;
@@ -54,6 +49,67 @@ void setFlag(void)
 {
     // we sent a packet, set the flag
     transmittedFlag = true;
+}
+
+void serialTask(void* parameter) {
+
+
+    while (true) {
+            // Read the header (packet_size + type)
+
+            // Allocate buffer for the full packet
+            uint8_t* fullBuffer = new uint8_t[512];
+            size_t fullLen = Serial.readBytes(fullBuffer, 512);
+
+            pb_istream_t fullStream = pb_istream_from_buffer(fullBuffer, fullLen);
+            Packet receivedPacket = Packet_init_zero;
+
+            // Decode the full packet
+            if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket)) {
+                Serial.print("Failed to decode full packet: ");
+                Serial.println(PB_GET_ERROR(&fullStream));
+                delete[] fullBuffer;
+                continue;
+            }
+            // Process the packet based on its type
+            if (receivedPacket.type == PacketType_SETTINGS) {
+                Serial.println("Settings packet received.");
+                saveSettingsToFile(receivedPacket.settings);
+                configureLoRaSettings(receivedPacket.settings, radio);
+                readSettings();
+                Serial.println("Settings updated successfully.");
+            } else if (receivedPacket.type == PacketType_TRANSMISSION) {
+                Serial.println("Transmission packet received.");
+
+                // Validate the payload
+                    Serial.print("Payload: ");
+                    for (size_t i = 0; i < 255; i++) {
+                        Serial.printf("%02X ", receivedPacket.transmission.payload.bytes[i]);  // Print payload in hexadecimal
+                    }
+                    Serial.println();
+
+                    Serial.print("Raw buffer: ");
+            Serial.println();
+
+                if (receivedPacket.transmission.payload.bytes > 0) {
+                    int state = radio.transmit(receivedPacket.transmission.payload.bytes, sizeof(receivedPacket.transmission.payload.bytes));
+                    if (state == RADIOLIB_ERR_NONE) {
+                        flashLed();
+                        Serial.println("Packet transmitted successfully.");
+                    } else {
+                        Serial.println("Transmission error.");
+                    }
+                } else {
+                    Serial.println("Empty payload, transmission skipped.");
+                }
+            } else {
+                Serial.println("Unknown packet type.");
+            }
+
+            delete[] fullBuffer;  // Free dynamically allocated memory
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
 void setup()
@@ -97,138 +153,20 @@ void setup()
 #endif
 
     setFlag();
+
+    xTaskCreate(
+        serialTask,        // Task function
+        "SerialTask",      // Name of the task
+        4096,              // Stack size in bytes
+        NULL,              // Task parameter (not used)
+        1,                 // Task priority
+        NULL               // Task handle
+    );
+
 }
-
-// void handleSettingsUpdate() {
-//         Serial.println("Applying new settings...");
-
-//         loadSettingsFromFile(settings);
-//         configureLoRaSettings(settings, radio); // Apply the new settings to the LoRa module
-//         newSettingsReceived = false;           // Reset the flag
-
-//         Serial.println("Settings updated.");
-//         delay(1000);
-//         readSettings();
-
-//         currentState = STANDBY;  // Return to standby
-// }
-
-// void handleTesting() {
-//     Serial.println("Running test operation...");
-
-//     if (Serial.available()) {
-//         String command = Serial.readStringUntil('\n');
-//         if (command == "STOP_TEST") {
-//             Serial.println("Stopping test operation...");
-//             currentState = STANDBY;
-//             return;
-//         }
-//     }
-
-//     // Transmission or reception logic
-//     int state = radio.startTransmit(testData, testDataSize);
-//     if (state != RADIOLIB_ERR_NONE) {
-//         Serial.println("Transmission error!");
-//     }
-
-//     delay(testInterval);  // User-defined interval between transmissions
-// }
-
-// void processPacket(const String& packet) {
-//     if (packet.length() < 3) {  // Minimum size for Arb ID + End Signal
-//         Serial.println("Invalid packet received");
-//         return;
-//     }
-
-//     command.arbID = packet[0];   // First byte is Arb ID
-//     command.payloadSize = packet[1];  // Second byte is Payload Size
-//     command.payload = packet.substring(2, 2 + payloadSize);  // Extract payload
-
-//     // Handle the packet based on Arb ID
-//     switch (command.arbID) {
-//         case 0x01:  // Start testing
-//             Serial.println("Start testing command received.");
-//             currentState = TESTING;
-//             break;
-
-//         case 0x02:  // Testing ongoing
-//             Serial.println("Testing ongoing data received.");
-//             break;
-
-//         case 0x03:  // Stop testing
-//             Serial.println("Stop testing command received.");
-//             currentState = STANDBY;
-//             break;
-
-//         case 0x04:  // Settings update
-//             Serial.println("Settings update command received.");
-//             currentState = SETTINGS_UPDATE;
-//             break;
-
-//         default:
-//             Serial.println("Unknown Arb ID received.");
-//             break;
-//     }
-// }
 
 
 
 void loop()
 {
-    // if (command.packetReady) {
-    //     processPacket(command.receivedPacket);
-    // }
-    // switch (currentState) {
-    //     case STANDBY:
-    //         break;
-
-    //     case SETTINGS_UPDATE:
-    //         handleSettingsUpdate(command.payload);
-    //         break;
-
-    //     case TESTING:
-    //         handleTesting();
-    //         break;
-
-    //     default:
-    //         Serial.println("Unknown state.");
-    //         currentState = STANDBY;
-    //         break;
-    // }
-}
-
-void serialEvent() {
-    // while (Serial.available() && command.packetReady = true) {
-    //     char c = Serial.read();
-    //     command.receivedPacket += c;
-
-    //     // Check for end signal (0xFF)
-    //     if (c == '\xFF') {
-    //         command.packetReady = true;
-    //         break;
-    //     }
-    // }
-
-        if (Serial.available()) {
-        // Read data into a buffer
-        uint8_t buffer[Settings_size];
-        size_t len = Serial.readBytes(buffer, sizeof(buffer));
-
-        // Deserialize the buffer into a Settings struct
-        pb_istream_t stream = pb_istream_from_buffer(buffer, len);
-        Settings receivedSettings = Settings_init_zero;
-
-        if (!pb_decode(&stream, &Settings_msg, &receivedSettings)) {
-            Serial.print("Failed to decode settings: ");
-            Serial.println(PB_GET_ERROR(&stream));
-            return;
-        }
-
-        // Optionally save the settings
-        saveSettingsToFile(receivedSettings);
-        configureLoRaSettings(settings, radio);
-        readSettings();
-
-        Serial.println("Settings updated successfully");
-    }
 }

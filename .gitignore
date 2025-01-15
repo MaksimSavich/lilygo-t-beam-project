@@ -6,10 +6,3 @@ myenv
 
 # MacOS Garbage files
 .DS_Store
-
-#PIO
-.pio
-transceiver/.vscode/.browse.c_cpp.db*
-transceiver/.vscode/c_cpp_properties.json
-transceiver/.vscode/launch.json
-transceiver/.vscode/ipch

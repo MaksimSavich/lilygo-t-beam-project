@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+enum PacketType {
+    UNSPECIFIED = 0;
+    SETTINGS = 1;
+    TRANSMISSION = 2;
+}
+
+message Settings {
+    float frequency = 1;
+    int32 power = 2;
+    float bandwidth = 3;
+    int32 spreading_factor = 4;
+    int32 coding_rate = 5;
+    int32 preamble = 6;
+    bool set_crc = 7;
+    uint32 sync_word = 8;
+}
+
+message Transmission {
+    bytes payload = 1;
+}
+
+message Packet {
+    PacketType type = 1;
+    Settings settings = 2;
+    Transmission transmission = 3;
+}
