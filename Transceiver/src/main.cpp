@@ -58,8 +58,8 @@ void serialTask(void* parameter) {
             // Read the header (packet_size + type)
 
             // Allocate buffer for the full packet
-            uint8_t* fullBuffer = new uint8_t[512];
-            size_t fullLen = Serial.readBytes(fullBuffer, 512);
+            uint8_t fullBuffer[Packet_size] = {0};
+            size_t fullLen = Serial.readBytes(fullBuffer, Packet_size);
 
             pb_istream_t fullStream = pb_istream_from_buffer(fullBuffer, fullLen);
             Packet receivedPacket = Packet_init_zero;
@@ -68,7 +68,6 @@ void serialTask(void* parameter) {
             if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket)) {
                 Serial.print("Failed to decode full packet: ");
                 Serial.println(PB_GET_ERROR(&fullStream));
-                delete[] fullBuffer;
                 continue;
             }
             // Process the packet based on its type
@@ -78,35 +77,9 @@ void serialTask(void* parameter) {
                 configureLoRaSettings(receivedPacket.settings, radio);
                 readSettings();
                 Serial.println("Settings updated successfully.");
-            } else if (receivedPacket.type == PacketType_TRANSMISSION) {
-                Serial.println("Transmission packet received.");
-
-                // Validate the payload
-                    Serial.print("Payload: ");
-                    for (size_t i = 0; i < 255; i++) {
-                        Serial.printf("%02X ", receivedPacket.transmission.payload.bytes[i]);  // Print payload in hexadecimal
-                    }
-                    Serial.println();
-
-                    Serial.print("Raw buffer: ");
-            Serial.println();
-
-                if (receivedPacket.transmission.payload.bytes > 0) {
-                    int state = radio.transmit(receivedPacket.transmission.payload.bytes, sizeof(receivedPacket.transmission.payload.bytes));
-                    if (state == RADIOLIB_ERR_NONE) {
-                        flashLed();
-                        Serial.println("Packet transmitted successfully.");
-                    } else {
-                        Serial.println("Transmission error.");
-                    }
-                } else {
-                    Serial.println("Empty payload, transmission skipped.");
-                }
             } else {
                 Serial.println("Unknown packet type.");
             }
-
-            delete[] fullBuffer;  // Free dynamically allocated memory
         }
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -169,4 +142,51 @@ void setup()
 
 void loop()
 {
+    while (true) {
+            // Read the header (packet_size + type)
+
+            // Allocate buffer for the full packet
+            uint8_t fullBuffer[512];
+            size_t fullLen = Serial.readBytes(fullBuffer, 512);
+
+            pb_istream_t fullStream = pb_istream_from_buffer(fullBuffer, fullLen);
+            Packet receivedPacket = Packet_init_zero;
+
+            // Decode the full packet
+            if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket)) {
+                Serial.print("Failed to decode full packet: ");
+                Serial.println(PB_GET_ERROR(&fullStream));
+                continue;
+            }
+            // Process the packet based on its type
+            if (receivedPacket.type == PacketType_TRANSMISSION) {
+                Serial.println("Transmission packet received.");
+
+                Serial.println("Payload size: ");
+                Serial.println(receivedPacket.transmission.payload.size);
+                // Validate the payload
+                    Serial.print("Payload: ");
+                    for (size_t i = 0; i < 255; i++) {
+                        Serial.printf("%02X ", receivedPacket.transmission.payload.bytes[i]);  
+                    }
+                    Serial.println();
+
+                    Serial.print("Raw buffer: ");
+                Serial.println();
+
+                if (receivedPacket.transmission.payload.bytes > 0) {
+                    int state = radio.transmit(receivedPacket.transmission.payload.bytes, sizeof(receivedPacket.transmission.payload.bytes));
+                    if (state == RADIOLIB_ERR_NONE) {
+                        flashLed();
+                        Serial.println("Packet transmitted successfully.");
+                    } else {
+                        Serial.println("Transmission error.");
+                    }
+                } else {
+                    Serial.println("Empty payload, transmission skipped.");
+                }
+            } else {
+                Serial.println("Unknown packet type.");
+            }
+        }
 }
