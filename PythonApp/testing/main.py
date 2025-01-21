@@ -24,7 +24,8 @@ print("Serialized data length:", len(serialized_data))
 
 
 # Send over serial and monitor output
-with serial.Serial('/dev/tty.usbserial-576E1296581', 115200, timeout=1) as ser:
+# with serial.Serial('/dev/tty.usbserial-576E1296581', 115200, timeout=1) as ser: # MAC
+with serial.Serial('COM7', 115200, timeout=1) as ser:  # Windows
     print("Uploading settings....")
     ser.write(serialized_data)
     print("Settings uploaded!")
