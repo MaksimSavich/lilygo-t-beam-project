@@ -16,7 +16,7 @@
 #define CONFIG_RADIO_PREAMBLE 8
 #define CONFIG_RADIO_SETCRC true
 #define CONFIG_RADIO_SW 0xAB
-#define CONFIG_FUNC_STATE true // true = transmitter | false = receiver
+#define CONFIG_FUNC_STATE FuncState_TRANSMITTER
 #define CONFIG_RADIO_SETTINGS_FILE "/settings.bin"
 
 void initializeSettings(Settings &settings, SX1262 &radio);

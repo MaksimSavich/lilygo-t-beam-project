@@ -176,53 +176,153 @@ void setup()
 
 void loop()
 {
-    // Check if there's a packet in the queue
-    if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
+    if (settings.func_state == FuncState_TRANSMITTER)
     {
-        // Decode the packet
-        pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
-        Packet receivedPacket = Packet_init_zero;
-
-        if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
+        // Check if there's a packet in the queue
+        if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
         {
-            Serial.print("Failed to decode packet: ");
-            Serial.println(PB_GET_ERROR(&fullStream));
-            return;
-        }
+            // Decode the packet
+            pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
+            Packet receivedPacket = Packet_init_zero;
 
-        // Handle the packet
-        if (receivedPacket.type == PacketType_SETTINGS)
-        {
-            Serial.println("Settings packet received.");
-            configureLoRaSettings(receivedPacket.settings, radio);
-            // readSettings();
-            Serial.println("Settings updated successfully.");
-        }
-        else if (receivedPacket.type == PacketType_TRANSMISSION)
-        {
-            Serial.println("Transmission packet received.");
-
-            if (receivedPacket.transmission.payload.size > 0)
+            if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
             {
-                int state = radio.transmit(receivedPacket.transmission.payload.bytes, sizeof(receivedPacket.transmission.payload.bytes));
-                if (state == RADIOLIB_ERR_NONE)
+                Serial.print("Failed to decode packet: ");
+                Serial.println(PB_GET_ERROR(&fullStream));
+                return;
+            }
+
+            // Handle the packet
+            if (receivedPacket.type == PacketType_SETTINGS)
+            {
+                Serial.println("Settings packet received.");
+                configureLoRaSettings(receivedPacket.settings, radio);
+                // readSettings();
+                Serial.println("Settings updated successfully.");
+            }
+            else if (receivedPacket.type == PacketType_TRANSMISSION)
+            {
+                Serial.println("Transmission packet received.");
+
+                if (receivedPacket.transmission.payload.size > 0)
                 {
-                    flashLed();
-                    Serial.println("Packet transmitted successfully.");
+                    int state = radio.transmit(receivedPacket.transmission.payload.bytes, sizeof(receivedPacket.transmission.payload.bytes));
+                    if (state == RADIOLIB_ERR_NONE)
+                    {
+                        flashLed();
+                        Serial.println("Packet transmitted successfully.");
+                    }
+                    else
+                    {
+                        Serial.println("Transmission error.");
+                    }
                 }
                 else
                 {
-                    Serial.println("Transmission error.");
+                    Serial.println("Empty payload, transmission skipped.");
                 }
             }
             else
             {
-                Serial.println("Empty payload, transmission skipped.");
+                Serial.println("Unknown packet type.");
             }
         }
-        else
+    }
+    else if (settings.func_state == FuncState_RECEIVER)
+    {
+        // Check if there's a packet in the queue
+        if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
         {
-            Serial.println("Unknown packet type.");
+            // Decode the packet
+            pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
+            Packet receivedPacket = Packet_init_zero;
+
+            if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
+            {
+                Serial.print("Failed to decode packet: ");
+                Serial.println(PB_GET_ERROR(&fullStream));
+                return;
+            }
+
+            // Handle the packet
+            if (receivedPacket.type == PacketType_SETTINGS)
+            {
+                Serial.println("Settings packet received.");
+                configureLoRaSettings(receivedPacket.settings, radio);
+                // readSettings();
+                Serial.println("Settings updated successfully.");
+            }
+            else
+            {
+                Serial.println("Unknown packet type.");
+            }
         }
+
+        if (transmittedFlag)
+        {
+
+            // reset flag
+            transmittedFlag = false;
+
+            // Create the data packet
+            // DataPacket packet;
+
+            int state = radio.readData(packet.received_data, 255);
+
+            flashLed();
+
+            // Get RSSI and SNR
+            packet.rssi = radio.getRSSI();
+            packet.snr = radio.getSNR();
+
+            while (SerialGPS.available())
+            {
+                if (gps.encode(SerialGPS.read()))
+                {
+                    if (gps.location.isValid())
+                    {
+                        packet.latitude = gps.location.lat();
+                        packet.longitude = gps.location.lng();
+                        packet.num_satellites = gps.satellites.value();
+                    }
+                    else
+                    {
+                        packet.latitude = NULL;
+                        packet.longitude = NULL;
+                        packet.num_satellites = NULL;
+                    }
+                }
+            }
+
+            // Handle packet state
+            if (state == RADIOLIB_ERR_NONE)
+            {
+                packet.crc_error = 0;
+                packet.general_error = 0;
+            }
+            else if (state == RADIOLIB_ERR_CRC_MISMATCH)
+            {
+                packet.crc_error = 1; // CRC error
+            }
+            else
+            {
+                packet.general_error = 1; // Other error
+            }
+
+            // Send the struct to the client
+            client.write((uint8_t *)&packet, sizeof(packet));
+
+            // Debug output
+            Serial.println(F("Packet sent to client."));
+            Serial.printf("Latitude: %.6f, Longitude: %.6f\n", packet.latitude, packet.longitude);
+            Serial.printf("RSSI: %.2f dBm, SNR: %.2f dB, Satellites: %d\n", packet.rssi, packet.snr, packet.num_satellites);
+
+            // put module back to listen mode
+            radio.startReceive();
+        }
+    }
+    else
+    {
+        Serial.println("Invalid function state.");
     }
 }

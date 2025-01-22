@@ -6,6 +6,11 @@ enum PacketType {
     TRANSMISSION = 2;
 }
 
+enum FuncState {
+    TRANSMITTER = 0;
+    RECEIVER = 1;
+}
+
 message Settings {
     float frequency = 1;
     int32 power = 2;
@@ -15,14 +20,27 @@ message Settings {
     int32 preamble = 6;
     bool set_crc = 7;
     uint32 sync_word = 8;
+    bool func_state = 9;
 }
 
 message Transmission {
     bytes payload = 1;
 }
 
+message Received {
+    bool crc_error = 1;
+    bool general_error = 2;
+    double latitude = 3;
+    double longitude = 4;
+    bytes sattelites = 5;
+    float rssi = 6;
+    float snr = 7;
+    bytes payload = 8;
+}
+
 message Packet {
     PacketType type = 1;
     Settings settings = 2;
     Transmission transmission = 3;
+    Received received = 4;
 }
