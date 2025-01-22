@@ -21,34 +21,30 @@
 SPIClass SDCardSPI(HSPI);
 #endif
 
-
 #if defined(ARDUINO_ARCH_STM32)
-HardwareSerial  SerialGPS(GPS_RX_PIN, GPS_TX_PIN);
+HardwareSerial SerialGPS(GPS_RX_PIN, GPS_TX_PIN);
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32)
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "hal/gpio_hal.h"
 #endif
 #include "driver/gpio.h"
-#endif //ARDUINO_ARCH_ESP32
-
+#endif // ARDUINO_ARCH_ESP32
 
 DISPLAY_MODEL *u8g2 = NULL;
-static DevInfo_t  devInfo;
+static DevInfo_t devInfo;
 
 #ifdef HAS_GPS
 static bool find_gps = false;
 String gps_model = "None";
 #endif
 
-
 uint32_t deviceOnline = 0x00;
-
 
 #ifdef HAS_PMU
 XPowersLibInterface *PMU = NULL;
-bool     pmuInterrupt;
+bool pmuInterrupt;
 
 static void setPmuFlag()
 {
@@ -58,33 +54,41 @@ static void setPmuFlag()
 
 static void enable_slow_clock();
 
-
 bool beginPower()
 {
 #ifdef HAS_PMU
-    if (!PMU) {
+    if (!PMU)
+    {
         PMU = new XPowersAXP2101(PMU_WIRE_PORT);
-        if (!PMU->init()) {
+        if (!PMU->init())
+        {
             Serial.println("Warning: Failed to find AXP2101 power management");
             delete PMU;
             PMU = NULL;
-        } else {
+        }
+        else
+        {
             Serial.println("AXP2101 PMU init succeeded, using AXP2101 PMU");
         }
     }
 
-    if (!PMU) {
+    if (!PMU)
+    {
         PMU = new XPowersAXP192(PMU_WIRE_PORT);
-        if (!PMU->init()) {
+        if (!PMU->init())
+        {
             Serial.println("Warning: Failed to find AXP192 power management");
             delete PMU;
             PMU = NULL;
-        } else {
+        }
+        else
+        {
             Serial.println("AXP192 PMU init succeeded, using AXP192 PMU");
         }
     }
 
-    if (!PMU) {
+    if (!PMU)
+    {
         return false;
     }
 
@@ -95,7 +99,8 @@ bool beginPower()
     pinMode(PMU_IRQ, INPUT_PULLUP);
     attachInterrupt(PMU_IRQ, setPmuFlag, FALLING);
 
-    if (PMU->getChipModel() == XPOWERS_AXP192) {
+    if (PMU->getChipModel() == XPOWERS_AXP192)
+    {
 
         PMU->setProtectedChannel(XPOWERS_DCDC3);
 
@@ -109,14 +114,14 @@ bool beginPower()
         PMU->enablePowerOutput(XPOWERS_LDO2);
         PMU->enablePowerOutput(XPOWERS_LDO3);
 
-        //protected oled power source
+        // protected oled power source
         PMU->setProtectedChannel(XPOWERS_DCDC1);
-        //protected esp32 power source
+        // protected esp32 power source
         PMU->setProtectedChannel(XPOWERS_DCDC3);
         // enable oled power
         PMU->enablePowerOutput(XPOWERS_DCDC1);
 
-        //disable not use channel
+        // disable not use channel
         PMU->disablePowerOutput(XPOWERS_DCDC2);
 
         PMU->disableIRQ(XPOWERS_AXP192_ALL_IRQ);
@@ -127,13 +132,13 @@ bool beginPower()
                        XPOWERS_AXP192_BAT_CHG_START_IRQ |
                        XPOWERS_AXP192_BAT_REMOVE_IRQ |
                        XPOWERS_AXP192_BAT_INSERT_IRQ |
-                       XPOWERS_AXP192_PKEY_SHORT_IRQ
-                      );
-
-    } else if (PMU->getChipModel() == XPOWERS_AXP2101) {
+                       XPOWERS_AXP192_PKEY_SHORT_IRQ);
+    }
+    else if (PMU->getChipModel() == XPOWERS_AXP2101)
+    {
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
-        //Unuse power channel
+        // Unuse power channel
         PMU->disablePowerOutput(XPOWERS_DCDC2);
         PMU->disablePowerOutput(XPOWERS_DCDC3);
         PMU->disablePowerOutput(XPOWERS_DCDC4);
@@ -150,27 +155,26 @@ bool beginPower()
         PMU->setPowerChannelVoltage(XPOWERS_VBACKUP, 3300);
         PMU->enablePowerOutput(XPOWERS_VBACKUP);
 
-        //ESP32 VDD 3300mV
-        // ! No need to set, automatically open , Don't close it
-        // PMU->setPowerChannelVoltage(XPOWERS_DCDC1, 3300);
-        // PMU->setProtectedChannel(XPOWERS_DCDC1);
+        // ESP32 VDD 3300mV
+        //  ! No need to set, automatically open , Don't close it
+        //  PMU->setPowerChannelVoltage(XPOWERS_DCDC1, 3300);
+        //  PMU->setProtectedChannel(XPOWERS_DCDC1);
         PMU->setProtectedChannel(XPOWERS_DCDC1);
 
         // LoRa VDD 3300mV
         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO2);
 
-        //GNSS VDD 3300mV
+        // GNSS VDD 3300mV
         PMU->setPowerChannelVoltage(XPOWERS_ALDO3, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO3);
 
 #endif /*CONFIG_IDF_TARGET_ESP32*/
 
-
 #if defined(T_BEAM_S3_SUPREME)
 
-        //t-beam m.2 inface
-        //gps
+        // t-beam m.2 inface
+        // gps
         PMU->setPowerChannelVoltage(XPOWERS_ALDO4, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO4);
 
@@ -179,7 +183,8 @@ bool beginPower()
         PMU->enablePowerOutput(XPOWERS_ALDO3);
 
         // In order to avoid bus occupation, during initialization, the SD card and QMC sensor are powered off and restarted
-        if (ESP_SLEEP_WAKEUP_UNDEFINED == esp_sleep_get_wakeup_cause()) {
+        if (ESP_SLEEP_WAKEUP_UNDEFINED == esp_sleep_get_wakeup_cause())
+        {
             Serial.println("Power off and restart ALDO BLDO..");
             PMU->disablePowerOutput(XPOWERS_ALDO1);
             PMU->disablePowerOutput(XPOWERS_ALDO2);
@@ -194,7 +199,7 @@ bool beginPower()
         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO2);
 
-        //Sdcard
+        // Sdcard
 
         PMU->setPowerChannelVoltage(XPOWERS_BLDO1, 3300);
         PMU->enablePowerOutput(XPOWERS_BLDO1);
@@ -202,7 +207,7 @@ bool beginPower()
         PMU->setPowerChannelVoltage(XPOWERS_BLDO2, 3300);
         PMU->enablePowerOutput(XPOWERS_BLDO2);
 
-        //face m.2
+        // face m.2
         PMU->setPowerChannelVoltage(XPOWERS_DCDC3, 3300);
         PMU->enablePowerOutput(XPOWERS_DCDC3);
 
@@ -212,8 +217,7 @@ bool beginPower()
         PMU->setPowerChannelVoltage(XPOWERS_DCDC5, 3300);
         PMU->enablePowerOutput(XPOWERS_DCDC5);
 
-
-        //not use channel
+        // not use channel
         PMU->disablePowerOutput(XPOWERS_DCDC2);
         // PMU->disablePowerOutput(XPOWERS_DCDC4);
         // PMU->disablePowerOutput(XPOWERS_DCDC5);
@@ -221,14 +225,13 @@ bool beginPower()
         PMU->disablePowerOutput(XPOWERS_DLDO2);
         PMU->disablePowerOutput(XPOWERS_VBACKUP);
 
-
 #elif defined(T_BEAM_S3_BPF)
 
-        //gps
+        // gps
         PMU->setPowerChannelVoltage(XPOWERS_ALDO4, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO4);
 
-        //Sdcard
+        // Sdcard
         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO2);
 
@@ -242,7 +245,7 @@ bool beginPower()
         PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO1);
 
-        //not use channel
+        // not use channel
         PMU->disablePowerOutput(XPOWERS_BLDO1);
         PMU->disablePowerOutput(XPOWERS_BLDO2);
         PMU->disablePowerOutput(XPOWERS_DCDC4);
@@ -252,7 +255,6 @@ bool beginPower()
         PMU->disablePowerOutput(XPOWERS_DLDO1);
         PMU->disablePowerOutput(XPOWERS_DLDO2);
         PMU->disablePowerOutput(XPOWERS_VBACKUP);
-
 
 #endif
 
@@ -268,13 +270,12 @@ bool beginPower()
         PMU->clearIrqStatus();
         // Enable the required interrupt function
         PMU->enableIRQ(
-            XPOWERS_AXP2101_BAT_INSERT_IRQ    | XPOWERS_AXP2101_BAT_REMOVE_IRQ      |   //BATTERY
-            XPOWERS_AXP2101_VBUS_INSERT_IRQ   | XPOWERS_AXP2101_VBUS_REMOVE_IRQ     |   //VBUS
-            XPOWERS_AXP2101_PKEY_SHORT_IRQ    | XPOWERS_AXP2101_PKEY_LONG_IRQ       |   //POWER KEY
-            XPOWERS_AXP2101_BAT_CHG_DONE_IRQ  | XPOWERS_AXP2101_BAT_CHG_START_IRQ       //CHARGE
+            XPOWERS_AXP2101_BAT_INSERT_IRQ | XPOWERS_AXP2101_BAT_REMOVE_IRQ |    // BATTERY
+            XPOWERS_AXP2101_VBUS_INSERT_IRQ | XPOWERS_AXP2101_VBUS_REMOVE_IRQ |  // VBUS
+            XPOWERS_AXP2101_PKEY_SHORT_IRQ | XPOWERS_AXP2101_PKEY_LONG_IRQ |     // POWER KEY
+            XPOWERS_AXP2101_BAT_CHG_DONE_IRQ | XPOWERS_AXP2101_BAT_CHG_START_IRQ // CHARGE
             // XPOWERS_AXP2101_PKEY_NEGATIVE_IRQ | XPOWERS_AXP2101_PKEY_POSITIVE_IRQ   |   //POWER KEY
         );
-
     }
 
     PMU->enableSystemVoltageMeasure();
@@ -282,60 +283,77 @@ bool beginPower()
     PMU->enableBattVoltageMeasure();
 
     Serial.printf("=========================================\n");
-    if (PMU->isChannelAvailable(XPOWERS_DCDC1)) {
-        Serial.printf("DC1  : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_DCDC1)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_DCDC1));
+    if (PMU->isChannelAvailable(XPOWERS_DCDC1))
+    {
+        Serial.printf("DC1  : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_DCDC1) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_DCDC1));
     }
-    if (PMU->isChannelAvailable(XPOWERS_DCDC2)) {
-        Serial.printf("DC2  : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_DCDC2)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_DCDC2));
+    if (PMU->isChannelAvailable(XPOWERS_DCDC2))
+    {
+        Serial.printf("DC2  : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_DCDC2) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_DCDC2));
     }
-    if (PMU->isChannelAvailable(XPOWERS_DCDC3)) {
-        Serial.printf("DC3  : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_DCDC3)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_DCDC3));
+    if (PMU->isChannelAvailable(XPOWERS_DCDC3))
+    {
+        Serial.printf("DC3  : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_DCDC3) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_DCDC3));
     }
-    if (PMU->isChannelAvailable(XPOWERS_DCDC4)) {
-        Serial.printf("DC4  : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_DCDC4)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_DCDC4));
+    if (PMU->isChannelAvailable(XPOWERS_DCDC4))
+    {
+        Serial.printf("DC4  : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_DCDC4) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_DCDC4));
     }
-    if (PMU->isChannelAvailable(XPOWERS_DCDC5)) {
-        Serial.printf("DC5  : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_DCDC5)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_DCDC5));
+    if (PMU->isChannelAvailable(XPOWERS_DCDC5))
+    {
+        Serial.printf("DC5  : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_DCDC5) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_DCDC5));
     }
-    if (PMU->isChannelAvailable(XPOWERS_LDO2)) {
-        Serial.printf("LDO2 : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_LDO2)   ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_LDO2));
+    if (PMU->isChannelAvailable(XPOWERS_LDO2))
+    {
+        Serial.printf("LDO2 : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_LDO2) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_LDO2));
     }
-    if (PMU->isChannelAvailable(XPOWERS_LDO3)) {
-        Serial.printf("LDO3 : %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_LDO3)   ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_LDO3));
+    if (PMU->isChannelAvailable(XPOWERS_LDO3))
+    {
+        Serial.printf("LDO3 : %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_LDO3) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_LDO3));
     }
-    if (PMU->isChannelAvailable(XPOWERS_ALDO1)) {
-        Serial.printf("ALDO1: %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_ALDO1)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_ALDO1));
+    if (PMU->isChannelAvailable(XPOWERS_ALDO1))
+    {
+        Serial.printf("ALDO1: %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_ALDO1) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_ALDO1));
     }
-    if (PMU->isChannelAvailable(XPOWERS_ALDO2)) {
-        Serial.printf("ALDO2: %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_ALDO2)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_ALDO2));
+    if (PMU->isChannelAvailable(XPOWERS_ALDO2))
+    {
+        Serial.printf("ALDO2: %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_ALDO2) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_ALDO2));
     }
-    if (PMU->isChannelAvailable(XPOWERS_ALDO3)) {
-        Serial.printf("ALDO3: %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_ALDO3)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_ALDO3));
+    if (PMU->isChannelAvailable(XPOWERS_ALDO3))
+    {
+        Serial.printf("ALDO3: %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_ALDO3) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_ALDO3));
     }
-    if (PMU->isChannelAvailable(XPOWERS_ALDO4)) {
-        Serial.printf("ALDO4: %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_ALDO4)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_ALDO4));
+    if (PMU->isChannelAvailable(XPOWERS_ALDO4))
+    {
+        Serial.printf("ALDO4: %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_ALDO4) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_ALDO4));
     }
-    if (PMU->isChannelAvailable(XPOWERS_BLDO1)) {
-        Serial.printf("BLDO1: %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_BLDO1)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_BLDO1));
+    if (PMU->isChannelAvailable(XPOWERS_BLDO1))
+    {
+        Serial.printf("BLDO1: %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_BLDO1) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_BLDO1));
     }
-    if (PMU->isChannelAvailable(XPOWERS_BLDO2)) {
-        Serial.printf("BLDO2: %s   Voltage: %04u mV \n",  PMU->isPowerChannelEnable(XPOWERS_BLDO2)  ? "+" : "-",  PMU->getPowerChannelVoltage(XPOWERS_BLDO2));
+    if (PMU->isChannelAvailable(XPOWERS_BLDO2))
+    {
+        Serial.printf("BLDO2: %s   Voltage: %04u mV \n", PMU->isPowerChannelEnable(XPOWERS_BLDO2) ? "+" : "-", PMU->getPowerChannelVoltage(XPOWERS_BLDO2));
     }
     Serial.printf("=========================================\n");
-
 
     // Set the time of pressing the button to turn off
     PMU->setPowerKeyPressOffTime(XPOWERS_POWEROFF_4S);
     uint8_t opt = PMU->getPowerKeyPressOffTime();
     Serial.print("PowerKeyPressOffTime:");
-    switch (opt) {
-    case XPOWERS_POWEROFF_4S: Serial.println("4 Second");
+    switch (opt)
+    {
+    case XPOWERS_POWEROFF_4S:
+        Serial.println("4 Second");
         break;
-    case XPOWERS_POWEROFF_6S: Serial.println("6 Second");
+    case XPOWERS_POWEROFF_6S:
+        Serial.println("6 Second");
         break;
-    case XPOWERS_POWEROFF_8S: Serial.println("8 Second");
+    case XPOWERS_POWEROFF_8S:
+        Serial.println("8 Second");
         break;
-    case XPOWERS_POWEROFF_10S: Serial.println("10 Second");
+    case XPOWERS_POWEROFF_10S:
+        Serial.println("10 Second");
         break;
     default:
         break;
@@ -348,7 +366,8 @@ void disablePeripherals()
 {
 
 #ifdef HAS_PMU
-    if (!PMU)return;
+    if (!PMU)
+        return;
 
     PMU->setChargingLedMode(XPOWERS_CHG_LED_OFF);
     // Disable the PMU measurement section
@@ -359,14 +378,15 @@ void disablePeripherals()
     PMU->disableBattDetection();
 
 #if defined(T_BEAM_S3_BPF)
-    PMU->disablePowerOutput(XPOWERS_ALDO4); //gps
-    PMU->disablePowerOutput(XPOWERS_ALDO2); //Sdcard
+    PMU->disablePowerOutput(XPOWERS_ALDO4); // gps
+    PMU->disablePowerOutput(XPOWERS_ALDO2); // Sdcard
     PMU->disablePowerOutput(XPOWERS_DCDC3); // Extern Power source
     PMU->disablePowerOutput(XPOWERS_DCDC5);
     PMU->disablePowerOutput(XPOWERS_ALDO1);
 #else
 
-    if (PMU->getChipModel() == XPOWERS_AXP2101) {
+    if (PMU->getChipModel() == XPOWERS_AXP2101)
+    {
 
         // Disable all PMU interrupts
         PMU->disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
@@ -378,8 +398,9 @@ void disablePeripherals()
         PMU->disablePowerOutput(XPOWERS_ALDO2);
         // GNSS VDD
         PMU->disablePowerOutput(XPOWERS_ALDO3);
-
-    } else if (PMU->getChipModel() == XPOWERS_AXP192) {
+    }
+    else if (PMU->getChipModel() == XPOWERS_AXP192)
+    {
 
         // Disable all PMU interrupts
         PMU->disableIRQ(XPOWERS_AXP192_ALL_IRQ);
@@ -389,8 +410,6 @@ void disablePeripherals()
         PMU->disablePowerOutput(XPOWERS_LDO2);
         // GNSS VDD
         PMU->disablePowerOutput(XPOWERS_LDO3);
-
-
     }
 #endif
 #endif
@@ -399,10 +418,12 @@ void disablePeripherals()
 void loopPMU(void (*pressed_cb)(void))
 {
 #ifdef HAS_PMU
-    if (!PMU) {
+    if (!PMU)
+    {
         return;
     }
-    if (!pmuInterrupt) {
+    if (!pmuInterrupt)
+    {
         return;
     }
 
@@ -414,31 +435,40 @@ void loopPMU(void (*pressed_cb)(void))
     Serial.print(" BIN:");
     Serial.println(status, BIN);
 
-    if (PMU->isVbusInsertIrq()) {
+    if (PMU->isVbusInsertIrq())
+    {
         Serial.println("isVbusInsert");
     }
-    if (PMU->isVbusRemoveIrq()) {
+    if (PMU->isVbusRemoveIrq())
+    {
         Serial.println("isVbusRemove");
     }
-    if (PMU->isBatInsertIrq()) {
+    if (PMU->isBatInsertIrq())
+    {
         Serial.println("isBatInsert");
     }
-    if (PMU->isBatRemoveIrq()) {
+    if (PMU->isBatRemoveIrq())
+    {
         Serial.println("isBatRemove");
     }
-    if (PMU->isPekeyShortPressIrq()) {
+    if (PMU->isPekeyShortPressIrq())
+    {
         Serial.println("isPekeyShortPress");
-        if (pressed_cb) {
+        if (pressed_cb)
+        {
             pressed_cb();
         }
     }
-    if (PMU->isPekeyLongPressIrq()) {
+    if (PMU->isPekeyLongPressIrq())
+    {
         Serial.println("isPekeyLongPress");
     }
-    if (PMU->isBatChargeDoneIrq()) {
+    if (PMU->isBatChargeDoneIrq())
+    {
         Serial.println("isBatChargeDone");
     }
-    if (PMU->isBatChargeStartIrq()) {
+    if (PMU->isBatChargeStartIrq())
+    {
         Serial.println("isBatChargeStart");
     }
     // Clear PMU Interrupt Status Register
@@ -449,7 +479,8 @@ void loopPMU(void (*pressed_cb)(void))
 bool beginDisplay()
 {
     Wire.beginTransmission(DISPLAY_ADDR);
-    if (Wire.endTransmission() == 0) {
+    if (Wire.endTransmission() == 0)
+    {
         Serial.printf("Find Display model at 0x%X address\n", DISPLAY_ADDR);
         u8g2 = new DISPLAY_MODEL(U8G2_R0, U8X8_PIN_NONE);
         u8g2->begin();
@@ -472,18 +503,20 @@ bool beginDisplay()
     return false;
 }
 
-
 bool beginSDCard()
 {
 #ifdef SDCARD_CS
-    if (SD.begin(SDCARD_CS, SDCardSPI)) {
+    if (SD.begin(SDCARD_CS, SDCardSPI))
+    {
         uint32_t cardSize = SD.cardSize() / (1024 * 1024);
         Serial.print("Sd Card init succeeded, The current available capacity is ");
         Serial.print(cardSize / 1024.0);
         Serial.println(" GB");
         deviceOnline |= SDCARD_ONLINE;
         return true;
-    } else {
+    }
+    else
+    {
         Serial.println("Warning: Failed to init Sd Card");
     }
 #endif
@@ -493,15 +526,14 @@ bool beginSDCard()
 void beginWiFi()
 {
 #ifdef ARDUINO_ARCH_ESP32
-    if (!WiFi.softAP("MSU SRT T-Beam Transmitter", "12345678")) {
-        log_e("Soft AP creation failed.");
-    }
-    IPAddress myIP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(myIP);
+    // if (!WiFi.softAP("MSU SRT T-Beam Transmitter", "12345678")) {
+    //     log_e("Soft AP creation failed.");
+    // }
+    // IPAddress myIP = WiFi.softAPIP();
+    // Serial.print("AP IP address: ");
+    // Serial.println(myIP);
 #endif
 }
-
 
 void printWakeupReason()
 {
@@ -509,34 +541,34 @@ void printWakeupReason()
     Serial.print("Reset reason:");
     esp_sleep_wakeup_cause_t wakeup_reason;
     wakeup_reason = esp_sleep_get_wakeup_cause();
-    switch (wakeup_reason) {
+    switch (wakeup_reason)
+    {
     case ESP_SLEEP_WAKEUP_UNDEFINED:
         Serial.println(" In case of deep sleep, reset was not caused by exit from deep sleep");
         break;
-    case ESP_SLEEP_WAKEUP_ALL :
+    case ESP_SLEEP_WAKEUP_ALL:
         break;
-    case ESP_SLEEP_WAKEUP_EXT0 :
+    case ESP_SLEEP_WAKEUP_EXT0:
         Serial.println("Wakeup caused by external signal using RTC_IO");
         break;
-    case ESP_SLEEP_WAKEUP_EXT1 :
+    case ESP_SLEEP_WAKEUP_EXT1:
         Serial.println("Wakeup caused by external signal using RTC_CNTL");
         break;
-    case ESP_SLEEP_WAKEUP_TIMER :
+    case ESP_SLEEP_WAKEUP_TIMER:
         Serial.println("Wakeup caused by timer");
         break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD :
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:
         Serial.println("Wakeup caused by touchpad");
         break;
-    case ESP_SLEEP_WAKEUP_ULP :
+    case ESP_SLEEP_WAKEUP_ULP:
         Serial.println("Wakeup caused by ULP program");
         break;
-    default :
+    default:
         Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
         break;
     }
 #endif
 }
-
 
 void getChipInfo()
 {
@@ -546,24 +578,25 @@ void getChipInfo()
 
     printWakeupReason();
 
-
-    if (psramFound()) {
+    if (psramFound())
+    {
         uint32_t psram = ESP.getPsramSize();
         devInfo.psramSize = psram / 1024.0 / 1024.0;
         Serial.printf("PSRAM is enable! PSRAM: %.2fMB\n", devInfo.psramSize);
         deviceOnline |= PSRAM_ONLINE;
-    } else {
+    }
+    else
+    {
         Serial.println("PSRAM is disable!");
         devInfo.psramSize = 0;
     }
 
-
     Serial.print("Flash:");
-    devInfo.flashSize       = ESP.getFlashChipSize() / 1024.0 / 1024.0;
-    devInfo.flashSpeed      = ESP.getFlashChipSpeed() / 1000 / 1000;
-    devInfo.chipModel       = ESP.getChipModel();
-    devInfo.chipModelRev    = ESP.getChipRevision();
-    devInfo.chipFreq        = ESP.getCpuFreqMHz();
+    devInfo.flashSize = ESP.getFlashChipSize() / 1024.0 / 1024.0;
+    devInfo.flashSpeed = ESP.getFlashChipSpeed() / 1000 / 1000;
+    devInfo.chipModel = ESP.getChipModel();
+    devInfo.chipModelRev = ESP.getChipRevision();
+    devInfo.chipFreq = ESP.getCpuFreqMHz();
 
     Serial.print(devInfo.flashSize);
     Serial.println(" MB");
@@ -586,7 +619,7 @@ void getChipInfo()
     Serial.println(__TIME__);
 
     uint8_t mac[6];
-    char macStr[18] = { 0 };
+    char macStr[18] = {0};
     esp_efuse_mac_get_default(mac);
     sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print("EFUSE MAC: ");
@@ -602,20 +635,19 @@ void getChipInfo()
     uid[1] = HAL_GetUIDw1();
     uid[2] = HAL_GetUIDw2();
     Serial.print("STM UID: 0X");
-    Serial.print( uid[0], HEX);
-    Serial.print( uid[1], HEX);
-    Serial.print( uid[2], HEX);
+    Serial.print(uid[0], HEX);
+    Serial.print(uid[1], HEX);
+    Serial.print(uid[2], HEX);
     Serial.println();
 #endif
 }
 
-
-
-void setupBoards(bool disable_u8g2 )
+void setupBoards(bool disable_u8g2)
 {
     Serial.begin(115200);
 
-    while (!Serial);
+    while (!Serial)
+        ;
 
     Serial.println("setupBoards");
 
@@ -658,20 +690,23 @@ void setupBoards(bool disable_u8g2 )
 
 #if OLED_RST
     pinMode(OLED_RST, OUTPUT);
-    digitalWrite(OLED_RST, HIGH); delay(20);
-    digitalWrite(OLED_RST, LOW);  delay(20);
-    digitalWrite(OLED_RST, HIGH); delay(20);
+    digitalWrite(OLED_RST, HIGH);
+    delay(20);
+    digitalWrite(OLED_RST, LOW);
+    delay(20);
+    digitalWrite(OLED_RST, HIGH);
+    delay(20);
 #endif
 
 #ifdef BOARD_LED
     /*
-    * T-Beam LED defaults to low level as turn on,
-    * so it needs to be forced to pull up
-    * * * * */
+     * T-Beam LED defaults to low level as turn on,
+     * so it needs to be forced to pull up
+     * * * * */
 #if LED_ON == LOW
 #if defined(ARDUINO_ARCH_ESP32)
     gpio_hold_dis((gpio_num_t)BOARD_LED);
-#endif //ARDUINO_ARCH_ESP32
+#endif // ARDUINO_ARCH_ESP32
 #endif
 
     pinMode(BOARD_LED, OUTPUT);
@@ -688,28 +723,31 @@ void setupBoards(bool disable_u8g2 )
     digitalWrite(GPS_RST_PIN, HIGH);
 #endif
 
-
 #if defined(ARDUINO_ARCH_STM32)
-    SerialGPS.println("@GSR"); delay(300);
-    SerialGPS.println("@GSR"); delay(300);
-    SerialGPS.println("@GSR"); delay(300);
-    SerialGPS.println("@GSR"); delay(300);
-    SerialGPS.println("@GSR"); delay(300);
+    SerialGPS.println("@GSR");
+    delay(300);
+    SerialGPS.println("@GSR");
+    delay(300);
+    SerialGPS.println("@GSR");
+    delay(300);
+    SerialGPS.println("@GSR");
+    delay(300);
+    SerialGPS.println("@GSR");
+    delay(300);
 #endif
-
 
 #ifdef RADIO_LDO_EN
     /*
-    * 2W LoRa LDO enable
-    * */
+     * 2W LoRa LDO enable
+     * */
     pinMode(RADIO_LDO_EN, OUTPUT);
     digitalWrite(RADIO_LDO_EN, LOW);
 #endif
 
 #ifdef RADIO_CTRL
     /*
-    * 2W LoRa RX TX Control
-    * */
+     * 2W LoRa RX TX Control
+     * */
     pinMode(RADIO_CTRL, OUTPUT);
     digitalWrite(RADIO_CTRL, LOW);
 #endif
@@ -718,7 +756,8 @@ void setupBoards(bool disable_u8g2 )
 
     beginSDCard();
 
-    if (!disable_u8g2) {
+    if (!disable_u8g2)
+    {
         beginDisplay();
     }
 
@@ -732,23 +771,29 @@ void setupBoards(bool disable_u8g2 )
     // find_gps = beginGPS(); T-Beam v1.2 does not have L76K
     find_gps = false;
     uint32_t baudrate[] = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 4800};
-    if (!find_gps) {
+    if (!find_gps)
+    {
         // Restore factory settings
-        for ( int i = 0; i < sizeof(baudrate) / sizeof(baudrate[0]); ++i) {
+        for (int i = 0; i < sizeof(baudrate) / sizeof(baudrate[0]); ++i)
+        {
             Serial.printf("Update baudrate : %u\n", baudrate[i]);
             SerialGPS.updateBaudRate(baudrate[i]);
-            if (recoveryGPS()) {
+            if (recoveryGPS())
+            {
                 Serial.println("UBlox GNSS init succeeded, using UBlox GNSS Module\n");
                 gps_model = "UBlox";
                 find_gps = true;
                 break;
             }
         }
-    } else {
+    }
+    else
+    {
         gps_model = "L76K";
     }
 
-    if (find_gps) {
+    if (find_gps)
+    {
         deviceOnline |= GPS_ONLINE;
     }
 
@@ -760,19 +805,18 @@ void setupBoards(bool disable_u8g2 )
     Serial.println("init done . ");
 }
 
-
 void printResult(bool radio_online)
 {
     Serial.print("Radio        : ");
     Serial.println((radio_online) ? "+" : "-");
 
-#if defined(CONFIG_IDF_TARGET_ESP32)  ||  defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
 
     Serial.print("PSRAM        : ");
     Serial.println((psramFound()) ? "+" : "-");
 
     Serial.print("Display      : ");
-    Serial.println(( u8g2) ? "+" : "-");
+    Serial.println((u8g2) ? "+" : "-");
 
 #ifdef HAS_SDCARD
     Serial.print("Sd Card      : ");
@@ -781,32 +825,37 @@ void printResult(bool radio_online)
 
 #ifdef HAS_PMU
     Serial.print("Power        : ");
-    Serial.println(( PMU ) ? "+" : "-");
+    Serial.println((PMU) ? "+" : "-");
 #endif
 
 #ifdef HAS_GPS
     Serial.print("GPS          : ");
-    Serial.println(( find_gps ) ? "+" : "-");
+    Serial.println((find_gps) ? "+" : "-");
 #endif
 
-    if (u8g2) {
+    if (u8g2)
+    {
 
         u8g2->clearBuffer();
-        u8g2->setFont(u8g2_font_NokiaLargeBold_tf );
-        uint16_t str_w =  u8g2->getStrWidth(BOARD_VARIANT_NAME);
+        u8g2->setFont(u8g2_font_NokiaLargeBold_tf);
+        uint16_t str_w = u8g2->getStrWidth(BOARD_VARIANT_NAME);
         u8g2->drawStr((u8g2->getWidth() - str_w) / 2, 16, BOARD_VARIANT_NAME);
         u8g2->drawHLine(5, 21, u8g2->getWidth() - 5);
 
-        u8g2->drawStr( 0, 38, "Disp:");     u8g2->drawStr( 45, 38, ( u8g2) ? "+" : "-");
+        u8g2->drawStr(0, 38, "Disp:");
+        u8g2->drawStr(45, 38, (u8g2) ? "+" : "-");
 
 #ifdef HAS_SDCARD
-        u8g2->drawStr( 0, 54, "SD :");      u8g2->drawStr( 45, 54, (SD.cardSize() != 0) ? "+" : "-");
+        u8g2->drawStr(0, 54, "SD :");
+        u8g2->drawStr(45, 54, (SD.cardSize() != 0) ? "+" : "-");
 #endif
 
-        u8g2->drawStr( 62, 38, "Radio:");    u8g2->drawStr( 120, 38, ( radio_online ) ? "+" : "-");
+        u8g2->drawStr(62, 38, "Radio:");
+        u8g2->drawStr(120, 38, (radio_online) ? "+" : "-");
 
 #ifdef HAS_PMU
-        u8g2->drawStr( 62, 54, "Power:");    u8g2->drawStr( 120, 54, ( PMU ) ? "+" : "-");
+        u8g2->drawStr(62, 54, "Power:");
+        u8g2->drawStr(120, 54, (PMU) ? "+" : "-");
 #endif
 
         u8g2->sendBuffer();
@@ -816,29 +865,30 @@ void printResult(bool radio_online)
 #endif
 }
 
-
 #ifdef BOARD_LED
 static uint8_t ledState = LOW;
 static const uint32_t debounceDelay = 50;
 static uint32_t lastDebounceTime = 0;
 #endif
 
-
 void flashLed()
 {
 #ifdef BOARD_LED
-    if ((millis() - lastDebounceTime) > debounceDelay) {
+    if ((millis() - lastDebounceTime) > debounceDelay)
+    {
         ledState = !ledState;
-        if (ledState) {
+        if (ledState)
+        {
             digitalWrite(BOARD_LED, LED_ON);
-        } else {
+        }
+        else
+        {
             digitalWrite(BOARD_LED, !LED_ON);
         }
         lastDebounceTime = millis();
     }
 #endif
 }
-
 
 void scanDevices(TwoWire *w)
 {
@@ -847,13 +897,17 @@ void scanDevices(TwoWire *w)
     uint32_t start = 0;
 
     Serial.println("I2C Devices scanning");
-    for (addr = 1; addr < 127; addr++) {
+    for (addr = 1; addr < 127; addr++)
+    {
         start = millis();
-        w->beginTransmission(addr); delay(2);
+        w->beginTransmission(addr);
+        delay(2);
         err = w->endTransmission();
-        if (err == 0) {
+        if (err == 0)
+        {
             nDevices++;
-            switch (addr) {
+            switch (addr)
+            {
             case 0x77:
             case 0x76:
                 Serial.println("\tFind BMX280 Sensor!");
@@ -877,17 +931,20 @@ void scanDevices(TwoWire *w)
                 break;
             default:
                 Serial.print("\tI2C device found at address 0x");
-                if (addr < 16) {
+                if (addr < 16)
+                {
                     Serial.print("0");
                 }
                 Serial.print(addr, HEX);
                 Serial.println(" !");
                 break;
             }
-
-        } else if (err == 4) {
+        }
+        else if (err == 4)
+        {
             Serial.print("Unknow error at address 0x");
-            if (addr < 16) {
+            if (addr < 16)
+            {
                 Serial.print("0");
             }
             Serial.println(addr, HEX);
@@ -900,24 +957,26 @@ void scanDevices(TwoWire *w)
     Serial.println("\n");
 }
 
-
 #ifdef HAS_GPS
 bool beginGPS()
 {
     SerialGPS.begin(GPS_BAUD_RATE, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
     bool result = false;
-    uint32_t startTimeout ;
-    for (int i = 0; i < 3; ++i) {
+    uint32_t startTimeout;
+    for (int i = 0; i < 3; ++i)
+    {
         SerialGPS.write("$PCAS03,0,0,0,0,0,0,0,0,0,0,,,0,0*02\r\n");
         delay(5);
         // Get version information
         startTimeout = millis() + 3000;
         Serial.print("Try to init L76K . Wait stop .");
         SerialGPS.flush();
-        while (SerialGPS.available()) {
+        while (SerialGPS.available())
+        {
             Serial.print(".");
             SerialGPS.readString();
-            if (millis() > startTimeout) {
+            if (millis() > startTimeout)
+            {
                 Serial.println("Wait L76K stop NMEA timeout!");
                 return false;
             }
@@ -929,15 +988,18 @@ bool beginGPS()
         SerialGPS.write("$PCAS06,0*1B\r\n");
         startTimeout = millis() + 500;
         String ver = "";
-        while (!SerialGPS.available()) {
-            if (millis() > startTimeout) {
+        while (!SerialGPS.available())
+        {
+            if (millis() > startTimeout)
+            {
                 Serial.println("Get L76K timeout!");
                 return false;
             }
         }
         SerialGPS.setTimeout(10);
         ver = SerialGPS.readStringUntil('\n');
-        if (ver.startsWith("$GPTXT,01,01,02")) {
+        if (ver.startsWith("$GPTXT,01,01,02"))
+        {
             Serial.println("L76K GNSS init succeeded, using L76K GNSS Module\n");
             result = true;
             break;
@@ -955,42 +1017,53 @@ bool beginGPS()
     return result;
 }
 
-
-
 static int getAck(uint8_t *buffer, uint16_t size, uint8_t requestedClass, uint8_t requestedID)
 {
-    uint16_t    ubxFrameCounter = 0;
-    bool        ubxFrame = 0;
-    uint32_t    startTime = millis();
-    uint16_t    needRead;
+    uint16_t ubxFrameCounter = 0;
+    bool ubxFrame = 0;
+    uint32_t startTime = millis();
+    uint16_t needRead;
 
-    while (millis() - startTime < 800) {
-        while (SerialGPS.available()) {
+    while (millis() - startTime < 800)
+    {
+        while (SerialGPS.available())
+        {
             int c = SerialGPS.read();
-            switch (ubxFrameCounter) {
+            switch (ubxFrameCounter)
+            {
             case 0:
-                if (c == 0xB5) {
+                if (c == 0xB5)
+                {
                     ubxFrameCounter++;
                 }
                 break;
             case 1:
-                if (c == 0x62) {
+                if (c == 0x62)
+                {
                     ubxFrameCounter++;
-                } else {
+                }
+                else
+                {
                     ubxFrameCounter = 0;
                 }
                 break;
             case 2:
-                if (c == requestedClass) {
+                if (c == requestedClass)
+                {
                     ubxFrameCounter++;
-                } else {
+                }
+                else
+                {
                     ubxFrameCounter = 0;
                 }
                 break;
             case 3:
-                if (c == requestedID) {
+                if (c == requestedID)
+                {
                     ubxFrameCounter++;
-                } else {
+                }
+                else
+                {
                     ubxFrameCounter = 0;
                 }
                 break;
@@ -999,17 +1072,21 @@ static int getAck(uint8_t *buffer, uint16_t size, uint8_t requestedClass, uint8_
                 ubxFrameCounter++;
                 break;
             case 5:
-                needRead |=  (c << 8);
+                needRead |= (c << 8);
                 ubxFrameCounter++;
                 break;
             case 6:
-                if (needRead >= size) {
+                if (needRead >= size)
+                {
                     ubxFrameCounter = 0;
                     break;
                 }
-                if (SerialGPS.readBytes(buffer, needRead) != needRead) {
+                if (SerialGPS.readBytes(buffer, needRead) != needRead)
+                {
                     ubxFrameCounter = 0;
-                } else {
+                }
+                else
+                {
                     return needRead;
                 }
                 break;
@@ -1030,23 +1107,29 @@ bool recoveryGPS()
     uint8_t cfg_clear3[] = {0xB5, 0x62, 0x06, 0x09, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x03, 0x1D, 0xB3};
     SerialGPS.write(cfg_clear1, sizeof(cfg_clear1));
 
-    if (getAck(buffer, 256, 0x05, 0x01)) {
+    if (getAck(buffer, 256, 0x05, 0x01))
+    {
         Serial.println("Get ack successes!");
     }
     SerialGPS.write(cfg_clear2, sizeof(cfg_clear2));
-    if (getAck(buffer, 256, 0x05, 0x01)) {
+    if (getAck(buffer, 256, 0x05, 0x01))
+    {
         Serial.println("Get ack successes!");
     }
     SerialGPS.write(cfg_clear3, sizeof(cfg_clear3));
-    if (getAck(buffer, 256, 0x05, 0x01)) {
+    if (getAck(buffer, 256, 0x05, 0x01))
+    {
         Serial.println("Get ack successes!");
     }
     // UBX-CFG-RATE, Size 8, 'Navigation/measurement rate settings'
     uint8_t cfg_rate[] = {0xB5, 0x62, 0x06, 0x08, 0x00, 0x00, 0x0E, 0x30};
     SerialGPS.write(cfg_rate, sizeof(cfg_rate));
-    if (getAck(buffer, 256, 0x06, 0x08)) {
+    if (getAck(buffer, 256, 0x06, 0x08))
+    {
         Serial.println("Get ack successes!");
-    } else {
+    }
+    else
+    {
         return false;
     }
     return true;
@@ -1054,14 +1137,13 @@ bool recoveryGPS()
 
 #endif
 
-
 #if defined(ARDUINO_ARCH_ESP32)
 
-//NCP18XH103F03RB: https://item.szlcsc.com/14214.html
-#define NTC_PIN 14 // NTC connection pins
-#define SERIES_RESISTOR 10000 // Series resistance value (10kΩ)
-#define B_COEFFICIENT 3950 // B value, set according to the NTC specification
-#define ROOM_TEMP 298.15 // 25°C absolute temperature (K)
+// NCP18XH103F03RB: https://item.szlcsc.com/14214.html
+#define NTC_PIN 14                 // NTC connection pins
+#define SERIES_RESISTOR 10000      // Series resistance value (10kΩ)
+#define B_COEFFICIENT 3950         // B value, set according to the NTC specification
+#define ROOM_TEMP 298.15           // 25°C absolute temperature (K)
 #define ROOM_TEMP_RESISTANCE 10000 // Resistance of NTC at 25°C (10kΩ)
 
 float getTempForNTC()
@@ -1069,7 +1151,8 @@ float getTempForNTC()
     static float temperature = 0.0f;
 #ifdef NTC_PIN
     static uint32_t check_temperature = 0;
-    if (millis() > check_temperature) {
+    if (millis() > check_temperature)
+    {
         float voltage = analogReadMilliVolts(NTC_PIN) / 1000.0;
         float resistance = SERIES_RESISTOR * ((3.3 / voltage) - 1); // Calculate the resistance of NTC
 
@@ -1080,14 +1163,13 @@ float getTempForNTC()
         Serial.print(temperature);
         Serial.println(" °C");
 
-        check_temperature  = millis() + 1000;
+        check_temperature = millis() + 1000;
     }
 #endif
     return temperature;
 }
 
-
-#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
 void setupBLE()
@@ -1095,7 +1177,7 @@ void setupBLE()
 #ifdef ENABLE_BLE
 
     uint8_t mac[6];
-    char macStr[18] = { 0 };
+    char macStr[18] = {0};
     esp_efuse_mac_get_default(mac);
     sprintf(macStr, "%02X:%02X", mac[0], mac[1]);
 
@@ -1110,8 +1192,8 @@ void setupBLE()
     BLEServer *pServer = BLEDevice::createServer();
     BLEService *pService = pServer->createService(SERVICE_UUID);
     BLECharacteristic *pCharacteristic = pService->createCharacteristic(
-            CHARACTERISTIC_UUID,
-            BLECharacteristic::PROPERTY_READ |
+        CHARACTERISTIC_UUID,
+        BLECharacteristic::PROPERTY_READ |
             BLECharacteristic::PROPERTY_WRITE);
 
     pCharacteristic->setValue("Hello World");
@@ -1120,7 +1202,7 @@ void setupBLE()
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
+    pAdvertising->setMinPreferred(0x06); // functions that help with iPhone connections issue
     pAdvertising->setMinPreferred(0x12);
     BLEDevice::startAdvertising();
     Serial.println("Characteristic defined! Now you can read it in your phone!");
@@ -1134,7 +1216,8 @@ static uint32_t calibrate_one(rtc_cal_sel_t cal_clk, const char *name)
     const uint32_t cal_count = 1000;
     const float factor = (1 << 19) * 1000.0f;
     uint32_t cali_val;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         cali_val = rtc_clk_cal(cal_clk, cal_count);
     }
     return cali_val;
@@ -1145,9 +1228,12 @@ static void enable_slow_clock()
     rtc_clk_32k_enable(true);
     CALIBRATE_ONE(RTC_CAL_RTC_MUX);
     uint32_t cal_32k = CALIBRATE_ONE(RTC_CAL_32K_XTAL);
-    if (cal_32k == 0) {
+    if (cal_32k == 0)
+    {
         Serial.printf("32K XTAL OSC has not started up");
-    } else {
+    }
+    else
+    {
         rtc_clk_slow_freq_set(RTC_SLOW_FREQ_32K_XTAL);
         Serial.println("Switching RTC Source to 32.768Khz succeeded, using 32K XTAL");
         CALIBRATE_ONE(RTC_CAL_RTC_MUX);
@@ -1155,12 +1241,12 @@ static void enable_slow_clock()
     }
     CALIBRATE_ONE(RTC_CAL_RTC_MUX);
     CALIBRATE_ONE(RTC_CAL_32K_XTAL);
-    if (rtc_clk_slow_freq_get() != RTC_SLOW_FREQ_32K_XTAL) {
-        Serial.println("Warning: Failed to set rtc clk to 32.768Khz !!! "); return;
+    if (rtc_clk_slow_freq_get() != RTC_SLOW_FREQ_32K_XTAL)
+    {
+        Serial.println("Warning: Failed to set rtc clk to 32.768Khz !!! ");
+        return;
     }
     deviceOnline |= OSC32768_ONLINE;
 }
 
-
 #endif /*ARDUINO_ARCH_ESP32*/
-

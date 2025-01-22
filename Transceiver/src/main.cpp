@@ -37,8 +37,7 @@ struct TaskMessage
 // Vars
 // DataPacket packet;
 QueueHandle_t taskQueue; // Queue for communication between cores
-WiFiServer server(80);
-WiFiClient client;
+TaskMessage message_popped;
 TinyGPSPlus gps;
 static int transmissionState = RADIOLIB_ERR_NONE; // save transmission state between loops
 static volatile bool transmittedFlag = false;     // flag to indicate that a packet was sent
@@ -110,12 +109,9 @@ void serialTask(void *parameter)
 
 void setup()
 {
-    Serial.setRxBufferSize(4096);
     setupBoards();
 
     delay(1000); // When the power is turned on, a delay is required.
-
-    server.begin();
 
     // initialize radio with default settings
     int state = radio.begin();
@@ -180,13 +176,11 @@ void setup()
 
 void loop()
 {
-    TaskMessage message;
-
     // Check if there's a packet in the queue
-    if (xQueueReceive(taskQueue, &message, portMAX_DELAY) == pdPASS)
+    if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
     {
         // Decode the packet
-        pb_istream_t fullStream = pb_istream_from_buffer(message.buffer, message.length);
+        pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
         Packet receivedPacket = Packet_init_zero;
 
         if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
@@ -201,7 +195,7 @@ void loop()
         {
             Serial.println("Settings packet received.");
             configureLoRaSettings(receivedPacket.settings, radio);
-            readSettings();
+            // readSettings();
             Serial.println("Settings updated successfully.");
         }
         else if (receivedPacket.type == PacketType_TRANSMISSION)
