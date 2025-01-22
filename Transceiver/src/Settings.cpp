@@ -1,16 +1,20 @@
 #include "Settings.h"
 
-void initializeSettings(Settings& settings, SX1262& radio) {
+void initializeSettings(Settings &settings, SX1262 &radio)
+{
     // Initialize LittleFS
-    if (!LittleFS.begin(true)) {
+    if (!LittleFS.begin(true))
+    {
         Serial.println("Failed to initialize LittleFS");
-        while (true);
+        while (true)
+            ;
     }
     Serial.println("LittleFS initialized successfully");
 
     File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_READ);
 
-    if (!file) {
+    if (!file)
+    {
         // If the file doesn't exist, create it with default settings
         Serial.println("Settings file not found. Creating with default values...");
 
@@ -22,9 +26,12 @@ void initializeSettings(Settings& settings, SX1262& radio) {
         settings.preamble = CONFIG_RADIO_PREAMBLE;
         settings.set_crc = CONFIG_RADIO_SETCRC;
         settings.sync_word = CONFIG_RADIO_SW;
+        settings.func_state = CONFIG_FUNC_STATE;
 
         saveSettingsToFile(settings);
-    } else {
+    }
+    else
+    {
         Serial.println("Settings file found. Loading values...");
         file.close();
     }
@@ -33,9 +40,11 @@ void initializeSettings(Settings& settings, SX1262& radio) {
     configureLoRaSettings(settings, radio);
 }
 
-void loadSettingsFromFile(Settings& settings) {
+void loadSettingsFromFile(Settings &settings)
+{
     File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_READ);
-    if (!file) {
+    if (!file)
+    {
         Serial.println("Failed to open settings file for reading");
         return;
     }
@@ -47,15 +56,18 @@ void loadSettingsFromFile(Settings& settings) {
 
     // Deserialize Protobuf data
     pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
-    if (!pb_decode(&stream, &Settings_msg, &settings)) {
+    if (!pb_decode(&stream, &Settings_msg, &settings))
+    {
         Serial.println("Failed to decode settings");
         return;
     }
 }
 
-void saveSettingsToFile(const Settings& settings) {
+void saveSettingsToFile(const Settings &settings)
+{
     File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_WRITE);
-    if (!file) {
+    if (!file)
+    {
         Serial.println("Failed to open settings file for writing");
         return;
     }
@@ -64,7 +76,8 @@ void saveSettingsToFile(const Settings& settings) {
     uint8_t buffer[Settings_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-    if (!pb_encode(&stream, &Settings_msg, &settings)) {
+    if (!pb_encode(&stream, &Settings_msg, &settings))
+    {
         Serial.println("Failed to encode settings");
         file.close();
         return;
@@ -75,9 +88,11 @@ void saveSettingsToFile(const Settings& settings) {
     Serial.println("Settings successfully written");
 }
 
-void readSettings() {
+void readSettings()
+{
     File file = LittleFS.open(CONFIG_RADIO_SETTINGS_FILE, FILE_READ);
-    if (!file) {
+    if (!file)
+    {
         Serial.println("Failed to open settings file for reading");
         return;
     }
@@ -89,7 +104,8 @@ void readSettings() {
     // Deserialize Protobuf data
     Settings settings = Settings_init_zero;
     pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
-    if (!pb_decode(&stream, &Settings_msg, &settings)) {
+    if (!pb_decode(&stream, &Settings_msg, &settings))
+    {
         Serial.println("Failed to decode settings");
         return;
     }
@@ -114,7 +130,8 @@ void readSettings() {
     Serial.println(settings.sync_word);
 }
 
-void configureLoRaSettings(const Settings& settings, SX1262& radio) {
+void configureLoRaSettings(const Settings &settings, SX1262 &radio)
+{
     if (radio.setFrequency(settings.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
         Serial.println("Error: Selected frequency is invalid for this module!");
     if (radio.setOutputPower(settings.power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
