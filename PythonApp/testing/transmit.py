@@ -19,7 +19,7 @@ packet.type = packet_pb2.TRANSMISSION
 
 # Open serial connection
 with serial.Serial('COM7', 115200, timeout=1) as ser:  # Adjust port as needed
-    print("Uploading settings in an infinite loop....")
+    print("Transmitting in an infinite loop....")
     count = 0  # Initialize counter
 
     # Start a thread to read from serial
