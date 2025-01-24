@@ -1,3 +1,2 @@
 Transmission.payload                max_size:255
 Received.payload                    max_size:255
-Received.sattelites                 max_size:1

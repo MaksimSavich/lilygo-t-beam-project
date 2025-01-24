@@ -18,6 +18,10 @@
 #include "LoRaBoards.h"
 #include "Settings.h"
 
+// Define the delimiters
+#define START_DELIMITER "<START>"
+#define END_DELIMITER "<END>"
+
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
 // // Data packet struct
@@ -41,13 +45,20 @@ TaskMessage message_popped;
 TinyGPSPlus gps;
 static int transmissionState = RADIOLIB_ERR_NONE; // save transmission state between loops
 static volatile bool transmittedFlag = false;     // flag to indicate that a packet was sent
-volatile bool newSettingsReceived = false;        // Flag for new settings
+static volatile bool receivedFlag = false;
+volatile bool newSettingsReceived = false; // Flag for new settings
 Settings settings;
 
 void setFlag(void)
 {
     // we sent a packet, set the flag
     transmittedFlag = true;
+}
+
+void setFlagReceived(void)
+{
+    // we sent a packet, set the flag
+    receivedFlag = true;
 }
 
 void serialTask(void *parameter)
@@ -172,6 +183,8 @@ void setup()
     );
 
     setFlag();
+    radio.setPacketReceivedAction(setFlagReceived);
+    setFlagReceived();
 }
 
 void loop()
@@ -197,7 +210,10 @@ void loop()
             {
                 Serial.println("Settings packet received.");
                 configureLoRaSettings(receivedPacket.settings, radio);
-                // readSettings();
+                saveSettingsToFile(receivedPacket.settings);
+                loadSettingsFromFile(settings);
+                flashLed();
+                readSettings();
                 Serial.println("Settings updated successfully.");
             }
             else if (receivedPacket.type == PacketType_TRANSMISSION)
@@ -230,50 +246,22 @@ void loop()
     }
     else if (settings.func_state == FuncState_RECEIVER)
     {
-        // Check if there's a packet in the queue
-        if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
+
+        if (receivedFlag)
         {
-            // Decode the packet
-            pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
-            Packet receivedPacket = Packet_init_zero;
-
-            if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
-            {
-                Serial.print("Failed to decode packet: ");
-                Serial.println(PB_GET_ERROR(&fullStream));
-                return;
-            }
-
-            // Handle the packet
-            if (receivedPacket.type == PacketType_SETTINGS)
-            {
-                Serial.println("Settings packet received.");
-                configureLoRaSettings(receivedPacket.settings, radio);
-                // readSettings();
-                Serial.println("Settings updated successfully.");
-            }
-            else
-            {
-                Serial.println("Unknown packet type.");
-            }
-        }
-
-        if (transmittedFlag)
-        {
+            Received received_packet = Received_init_zero;
 
             // reset flag
-            transmittedFlag = false;
+            receivedFlag = false;
 
-            // Create the data packet
-            // DataPacket packet;
-
-            int state = radio.readData(packet.received_data, 255);
+            int state = radio.readData(received_packet.payload.bytes, 255);
+            received_packet.payload.size = 255;
 
             flashLed();
 
             // Get RSSI and SNR
-            packet.rssi = radio.getRSSI();
-            packet.snr = radio.getSNR();
+            received_packet.rssi = radio.getRSSI();
+            received_packet.snr = radio.getSNR();
 
             while (SerialGPS.available())
             {
@@ -281,15 +269,15 @@ void loop()
                 {
                     if (gps.location.isValid())
                     {
-                        packet.latitude = gps.location.lat();
-                        packet.longitude = gps.location.lng();
-                        packet.num_satellites = gps.satellites.value();
+                        received_packet.latitude = gps.location.lat();
+                        received_packet.longitude = gps.location.lng();
+                        received_packet.sattelites = gps.satellites.value();
                     }
                     else
                     {
-                        packet.latitude = NULL;
-                        packet.longitude = NULL;
-                        packet.num_satellites = NULL;
+                        received_packet.latitude = 0;
+                        received_packet.longitude = 0;
+                        received_packet.sattelites = 0;
                     }
                 }
             }
@@ -297,29 +285,75 @@ void loop()
             // Handle packet state
             if (state == RADIOLIB_ERR_NONE)
             {
-                packet.crc_error = 0;
-                packet.general_error = 0;
+                received_packet.crc_error = false;
+                received_packet.general_error = false;
             }
             else if (state == RADIOLIB_ERR_CRC_MISMATCH)
             {
-                packet.crc_error = 1; // CRC error
+                received_packet.crc_error = true; // CRC error
             }
             else
             {
-                packet.general_error = 1; // Other error
+                received_packet.general_error = true; // Other error
             }
 
             // Send the struct to the client
-            client.write((uint8_t *)&packet, sizeof(packet));
+            uint8_t buffer[512];
+            size_t message_length;
+            pb_ostream_t stream = pb_ostream_from_buffer(buffer, 512);
+            // Encode the message
+            if (!pb_encode(&stream, Received_fields, &received_packet))
+            {
+                printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+                return;
+            }
+
+            message_length = stream.bytes_written;
+            // Send the start delimiter
+            Serial.write(START_DELIMITER, strlen(START_DELIMITER));
+            Serial.write(buffer, message_length);
+            // Send the end delimiter
+            Serial.write(END_DELIMITER, strlen(END_DELIMITER));
 
             // Debug output
-            Serial.println(F("Packet sent to client."));
-            Serial.printf("Latitude: %.6f, Longitude: %.6f\n", packet.latitude, packet.longitude);
-            Serial.printf("RSSI: %.2f dBm, SNR: %.2f dB, Satellites: %d\n", packet.rssi, packet.snr, packet.num_satellites);
+            // Serial.println(F("Packet sent to client."));
+            // Serial.printf("Latitude: %.6f, Longitude: %.6f\n", packet.latitude, packet.longitude);
+            // Serial.printf("RSSI: %.2f dBm, SNR: %.2f dB, Satellites: %d\n", packet.rssi, packet.snr, packet.num_satellites);
 
             // put module back to listen mode
             radio.startReceive();
+            Serial.println("Received rf message");
         }
+        // // Check if there's a packet in the queue
+        // if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
+        // {
+        //     // Decode the packet
+        //     pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
+        //     Packet receivedPacket = Packet_init_zero;
+
+        //     if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
+        //     {
+        //         Serial.print("Failed to decode packet: ");
+        //         Serial.println(PB_GET_ERROR(&fullStream));
+        //         return;
+        //     }
+
+        //     // Handle the packet
+        //     if (receivedPacket.type == PacketType_SETTINGS)
+        //     {
+        //         Serial.println("Settings packet received.");
+        //         configureLoRaSettings(receivedPacket.settings, radio);
+        //         saveSettingsToFile(receivedPacket.settings);
+        //         loadSettingsFromFile(settings);
+        //         flashLed();
+        //         // readSettings();
+        //         Serial.println("Settings updated successfully.");
+        //     }
+        //     else
+        //     {
+        //         Serial.println("Unknown packet type.");
+        //     }
+        // }
     }
     else
     {

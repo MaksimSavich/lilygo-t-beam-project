@@ -39,14 +39,13 @@ typedef struct _Transmission {
     Transmission_payload_t payload;
 } Transmission;
 
-typedef PB_BYTES_ARRAY_T(1) Received_sattelites_t;
 typedef PB_BYTES_ARRAY_T(255) Received_payload_t;
 typedef struct _Received {
     bool crc_error;
     bool general_error;
     double latitude;
     double longitude;
-    Received_sattelites_t sattelites;
+    uint32_t sattelites;
     float rssi;
     float snr;
     Received_payload_t payload;
@@ -85,11 +84,11 @@ extern "C" {
 /* Initializer values for message structs */
 #define Settings_init_default                    {0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define Transmission_init_default                {{0, {0}}}
-#define Received_init_default                    {0, 0, 0, 0, {0, {0}}, 0, 0, {0, {0}}}
+#define Received_init_default                    {0, 0, 0, 0, 0, 0, 0, {0, {0}}}
 #define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Received_init_default}
 #define Settings_init_zero                       {0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define Transmission_init_zero                   {{0, {0}}}
-#define Received_init_zero                       {0, 0, 0, 0, {0, {0}}, 0, 0, {0, {0}}}
+#define Received_init_zero                       {0, 0, 0, 0, 0, 0, 0, {0, {0}}}
 #define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Received_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -140,7 +139,7 @@ X(a, STATIC,   SINGULAR, BOOL,     crc_error,         1) \
 X(a, STATIC,   SINGULAR, BOOL,     general_error,     2) \
 X(a, STATIC,   SINGULAR, DOUBLE,   latitude,          3) \
 X(a, STATIC,   SINGULAR, DOUBLE,   longitude,         4) \
-X(a, STATIC,   SINGULAR, BYTES,    sattelites,        5) \
+X(a, STATIC,   SINGULAR, UINT32,   sattelites,        5) \
 X(a, STATIC,   SINGULAR, FLOAT,    rssi,              6) \
 X(a, STATIC,   SINGULAR, FLOAT,    snr,               7) \
 X(a, STATIC,   SINGULAR, BYTES,    payload,           8)
@@ -171,8 +170,8 @@ extern const pb_msgdesc_t Packet_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define PACKET_PB_H_MAX_SIZE                     Packet_size
-#define Packet_size                              625
-#define Received_size                            293
+#define Packet_size                              628
+#define Received_size                            296
 #define Settings_size                            64
 #define Transmission_size                        258
 

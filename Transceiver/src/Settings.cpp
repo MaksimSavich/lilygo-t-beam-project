@@ -128,6 +128,8 @@ void readSettings()
     Serial.println(settings.set_crc ? "True" : "False");
     Serial.print("Sync Word: ");
     Serial.println(settings.sync_word);
+    Serial.print("Func State: ");
+    Serial.println(settings.func_state);
 }
 
 void configureLoRaSettings(const Settings &settings, SX1262 &radio)

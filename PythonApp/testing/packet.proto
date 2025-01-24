@@ -32,7 +32,7 @@ message Received {
     bool general_error = 2;
     double latitude = 3;
     double longitude = 4;
-    bytes sattelites = 5;
+    uint32 sattelites = 5;
     float rssi = 6;
     float snr = 7;
     bytes payload = 8;
