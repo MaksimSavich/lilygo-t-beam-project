@@ -8,9 +8,20 @@
 
 PB_BIND(Settings, Settings, AUTO)
 
+
 PB_BIND(Transmission, Transmission, 2)
 
+
 PB_BIND(Reception, Reception, 2)
+
+
+PB_BIND(Packet, Packet, 2)
+
+
+
+
+
+
 
 #ifndef PB_CONVERT_DOUBLE_FLOAT
 /* On some platforms (such as AVR), double is really float.
@@ -19,3 +30,4 @@ PB_BIND(Reception, Reception, 2)
  */
 PB_STATIC_ASSERT(sizeof(double) == 8, DOUBLE_MUST_BE_8_BYTES)
 #endif
+

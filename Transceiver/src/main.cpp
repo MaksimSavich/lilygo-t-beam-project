@@ -24,6 +24,12 @@
 
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
+struct ProtoMessage
+{
+    uint8_t *buffer;
+    size_t length;
+};
+
 // Vars
 QueueHandle_t taskQueue; // Queue for communication between cores
 TinyGPSPlus gps;
@@ -83,6 +89,7 @@ void serialTask(void *parameter)
                     if (uxQueueSpacesAvailable(taskQueue) > 0)
                     {
                         // Dynamically allocate memory for the incoming buffer
+                        ProtoMessage *message = (ProtoMessage *)malloc(1);
                         uint8_t *data = (uint8_t *)malloc(dataLength);
                         if (data == NULL)
                         {
@@ -94,8 +101,11 @@ void serialTask(void *parameter)
                         // Copy data into the dynamically allocated buffer
                         memcpy(data, start + START_LEN, dataLength);
 
+                        message->buffer = data;
+                        message->length = dataLength;
+
                         // Pass the pointer to the queue
-                        if (xQueueSend(taskQueue, &data, 0) != pdPASS)
+                        if (xQueueSend(taskQueue, &message, 0) != pdPASS)
                         {
                             Serial.println("Queue full, dropped packet.");
                             free(data); // Free the memory if the queue is full
@@ -161,7 +171,7 @@ void setup()
 #endif
 
     // Create the task queue
-    taskQueue = xQueueCreate(20, sizeof(uint8_t *));
+    taskQueue = xQueueCreate(20, sizeof(ProtoMessage *));
     if (taskQueue == NULL)
     {
         Serial.println("Failed to create task queue!");
@@ -187,13 +197,14 @@ void setup()
 
 void loop()
 {
+    ProtoMessage *message_popped;
     if (settings.func_state == FuncState_TRANSMITTER)
     {
         // Check if there's a packet in the queue
         if (xQueueReceive(taskQueue, &message_popped, portMAX_DELAY) == pdPASS)
         {
             // Decode the packet
-            pb_istream_t fullStream = pb_istream_from_buffer(message_popped.buffer, message_popped.length);
+            pb_istream_t fullStream = pb_istream_from_buffer(message_popped->buffer, message_popped->length);
             Packet receivedPacket = Packet_init_zero;
 
             if (!pb_decode(&fullStream, &Packet_msg, &receivedPacket))
@@ -247,7 +258,7 @@ void loop()
 
         if (receivedFlag)
         {
-            Received received_packet = Received_init_zero;
+            Reception received_packet = Reception_init_zero;
 
             // reset flag
             receivedFlag = false;
@@ -300,7 +311,7 @@ void loop()
             size_t message_length;
             pb_ostream_t stream = pb_ostream_from_buffer(buffer, 512);
             // Encode the message
-            if (!pb_encode(&stream, Received_fields, &received_packet))
+            if (!pb_encode(&stream, Reception_fields, &received_packet))
             {
                 printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
                 return;
@@ -357,4 +368,6 @@ void loop()
     {
         Serial.println("Invalid function state.");
     }
+    free(message_popped->buffer);
+    free(message_popped);
 }
