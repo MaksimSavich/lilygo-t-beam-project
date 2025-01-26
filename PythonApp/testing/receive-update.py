@@ -8,7 +8,7 @@ START_MARKER = b"<START>"
 END_MARKER = b"<END>"
 
 # Serial port configuration
-SERIAL_PORT = "/dev/tty.usbserial-576E1297901"  # Update with the correct port
+SERIAL_PORT = "COM8"  # Update with the correct port
 BAUD_RATE = 115200
 TIMEOUT = 1
 
@@ -40,7 +40,7 @@ def read_and_decode(ser):
                 buffer = buffer[end_idx + len(END_MARKER):]  # Remove processed data
 
                 # Decode the protobuf message
-                received_packet = packet_pb2.Received()
+                received_packet = packet_pb2.Reception()
                 try:
                     received_packet.ParseFromString(message)
 
