@@ -39,3 +39,10 @@ message Reception {
     float snr = 7;
     bytes payload = 8;
 }
+
+message Packet {
+    PacketType type = 1;
+    Settings settings = 2;
+    Transmission transmission = 3;
+    Reception received = 4;
+}
