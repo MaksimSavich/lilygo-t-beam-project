@@ -24,24 +24,8 @@
 
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
-// // Data packet struct
-// struct DataPacket {
-//     uint16_t packet_id = 1;
-//     double latitude;           // 8 bytes: Latitude
-//     double longitude;          // 8 bytes: Longitude
-//     uint8_t num_satellites;    // 1 byte: Number of satellites
-// };
-
-struct TaskMessage
-{
-    uint8_t buffer[512];
-    size_t length;
-};
-
 // Vars
-// DataPacket packet;
 QueueHandle_t taskQueue; // Queue for communication between cores
-TaskMessage message_popped;
 TinyGPSPlus gps;
 static int transmissionState = RADIOLIB_ERR_NONE; // save transmission state between loops
 static volatile bool transmittedFlag = false;     // flag to indicate that a packet was sent
@@ -63,54 +47,68 @@ void setFlagReceived(void)
 
 void serialTask(void *parameter)
 {
-    static uint8_t buffer[512]; // Buffer to accumulate incoming data
-    static size_t bufferIndex = 0;
     const char START_MARKER[] = "<START>";
     const char END_MARKER[] = "<END>";
     const size_t START_LEN = sizeof(START_MARKER) - 1;
     const size_t END_LEN = sizeof(END_MARKER) - 1;
+    static uint8_t serialBuffer[PACKET_PB_H_MAX_SIZE + sizeof(START_MARKER) + sizeof(END_MARKER)];
+    static size_t serialBufferIndex = 0;
 
     while (true)
     {
         while (Serial.available())
         {
             // Read a byte from the serial buffer
-            char byte = Serial.read();
-            buffer[bufferIndex++] = byte;
+            serialBuffer[serialBufferIndex++] = Serial.read();
 
-            // Check if the buffer contains the end marker
-            if (bufferIndex >= START_LEN + END_LEN)
-            {
-                if (memcmp(&buffer[bufferIndex - END_LEN], END_MARKER, END_LEN) == 0)
-                {
-                    // Find the start marker
-                    uint8_t *start = (uint8_t *)memmem(buffer, bufferIndex, START_MARKER, START_LEN);
-                    if (start)
-                    {
-                        size_t dataLength = &buffer[bufferIndex - END_LEN] - (start + START_LEN);
-
-                        // Copy the packet data into a TaskMessage
-                        TaskMessage message;
-                        message.length = dataLength;
-                        memcpy(message.buffer, start + START_LEN, dataLength);
-
-                        // Add the message to the queue
-                        if (xQueueSend(taskQueue, &message, 0) != pdPASS)
-                        {
-                            Serial.println("Queue full, dropped packet.");
-                        }
-
-                        // Reset the buffer
-                        bufferIndex = 0;
-                    }
-                }
-            }
-
-            // Prevent buffer overflow
-            if (bufferIndex >= sizeof(buffer))
+            // Check for buffer overflow
+            if (serialBufferIndex >= sizeof(serialBuffer))
             {
                 Serial.println("Buffer overflow, resetting.");
-                bufferIndex = 0;
+                serialBufferIndex = 0;
+                continue;
+            }
+
+            // Check for the end marker
+            if (serialBufferIndex >= END_LEN &&
+                memcmp(&serialBuffer[serialBufferIndex - END_LEN], END_MARKER, END_LEN) == 0)
+            {
+                // Find the start marker
+                uint8_t *start = (uint8_t *)memmem(serialBuffer, serialBufferIndex, START_MARKER, START_LEN);
+                if (start)
+                {
+                    size_t dataLength = &serialBuffer[serialBufferIndex - END_LEN] - (start + START_LEN);
+
+                    // Check if the queue has space before allocating memory
+                    if (uxQueueSpacesAvailable(taskQueue) > 0)
+                    {
+                        // Dynamically allocate memory for the incoming buffer
+                        uint8_t *data = (uint8_t *)malloc(dataLength);
+                        if (data == NULL)
+                        {
+                            Serial.println("Memory allocation failed.");
+                            serialBufferIndex = 0;
+                            continue;
+                        }
+
+                        // Copy data into the dynamically allocated buffer
+                        memcpy(data, start + START_LEN, dataLength);
+
+                        // Pass the pointer to the queue
+                        if (xQueueSend(taskQueue, &data, 0) != pdPASS)
+                        {
+                            Serial.println("Queue full, dropped packet.");
+                            free(data); // Free the memory if the queue is full
+                        }
+                    }
+                    else
+                    {
+                        Serial.println("Queue full, skipping allocation.");
+                    }
+                }
+
+                // Reset the buffer
+                serialBufferIndex = 0;
             }
         }
 
@@ -163,7 +161,7 @@ void setup()
 #endif
 
     // Create the task queue
-    taskQueue = xQueueCreate(20, sizeof(TaskMessage));
+    taskQueue = xQueueCreate(20, sizeof(uint8_t *));
     if (taskQueue == NULL)
     {
         Serial.println("Failed to create task queue!");

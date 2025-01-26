@@ -4,6 +4,8 @@ enum PacketType {
     UNSPECIFIED = 0;
     SETTINGS = 1;
     TRANSMISSION = 2;
+    RECEPTION = 3;
+
 }
 
 enum FuncState {
@@ -20,14 +22,14 @@ message Settings {
     int32 preamble = 6;
     bool set_crc = 7;
     uint32 sync_word = 8;
-    bool func_state = 9;
+    FuncState func_state = 9;
 }
 
 message Transmission {
     bytes payload = 1;
 }
 
-message Received {
+message Reception {
     bool crc_error = 1;
     bool general_error = 2;
     double latitude = 3;
@@ -36,11 +38,4 @@ message Received {
     float rssi = 6;
     float snr = 7;
     bytes payload = 8;
-}
-
-message Packet {
-    PacketType type = 1;
-    Settings settings = 2;
-    Transmission transmission = 3;
-    Received received = 4;
 }

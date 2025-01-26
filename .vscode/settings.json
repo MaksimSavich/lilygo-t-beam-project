@@ -1,0 +1,15 @@
+{
+  "files.associations": {
+    "*.sqlbook": "sql",
+    "*.ndjson": "jsonl",
+    "*.dbclient-js": "javascript",
+    "future": "cpp",
+    "system_error": "cpp",
+    "*.tpp": "cpp",
+    "ostream": "cpp",
+    "array": "cpp",
+    "vector": "cpp",
+    "xstring": "cpp",
+    "xutility": "cpp"
+  }
+}
