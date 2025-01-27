@@ -25,8 +25,8 @@ bool RadioManager::initialize(SettingsManager &settings)
         radio.startReceive();
     }
 
+    // Since I don't send an initial message at startup, transmitted must be set true at init
     transmittedFlag = true;
-    receivedFlag = true;
 
     return true;
 }
@@ -93,7 +93,7 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
     // if (transmittedFlag)
     // {
     transmittedFlag = false;
-    int state = radio.startTransmit(data, 255);
+    int state = radio.startTransmit(data, length);
 
     flashLed();
     // }
@@ -143,7 +143,7 @@ void RadioManager::processGPSData(Reception &reception)
 
 void RadioManager::sendReceptionProto(const Reception &reception)
 {
-    uint8_t buffer[512];
+    uint8_t buffer[Reception_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
     if (pb_encode(&stream, Reception_fields, &reception))

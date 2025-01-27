@@ -51,7 +51,7 @@ void SerialTaskManager::serialTask(void *param)
     while (true)
     {
         instance->processSerialData();
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
