@@ -18,7 +18,7 @@ packet = packet_pb2.Packet()
 packet.type = packet_pb2.TRANSMISSION
 
 # Open serial connection
-with serial.Serial('COM8', 115200, timeout=1) as ser:  # Adjust port as needed
+with serial.Serial('COM7', 115200, timeout=1) as ser:  # Adjust port as needed
     print("Transmitting in an infinite loop....")
     count = 0  # Initialize counter
 

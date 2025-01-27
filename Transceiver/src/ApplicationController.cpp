@@ -1,4 +1,5 @@
 #include "ApplicationController.h"
+#include "loraboards.h"
 #include <pb_decode.h>
 #include <pb_encode.h>
 
@@ -11,7 +12,7 @@ void ApplicationController::initialize()
 {
     // Initialize components
 
-    if (settingsMgr.initialize())
+    if (!settingsMgr.initialize())
     {
         Serial.println("Failed to initialize settings manager!\nSettings may be bad!");
         return;
@@ -31,6 +32,7 @@ void ApplicationController::initialize()
 
     running = true;
     Serial.println("Application controller initialized");
+    settingsMgr.print();
 }
 
 void ApplicationController::run()
@@ -79,11 +81,9 @@ void ApplicationController::processProtoMessage(ProtoData *data)
         updateLoraSettings(packet.settings);
         Serial.println("Updated LoRa settings");
     }
-    else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission)
+    else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && settingsMgr.config.func_state == FuncState_TRANSMITTER)
     {
-        // Handle transmission request
-        const auto &tx = packet.transmission;
-        radioMgr.transmit(tx.payload.bytes, tx.payload.size);
+        radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
     }
 }
 
@@ -107,8 +107,6 @@ void ApplicationController::handleTransmissionMode()
     // Continuous transmission logic
     if (radioMgr.isTransmitted())
     {
-        // Handle transmission complete
-        radioMgr.startReceive(); // Listen for ACKs if needed
     }
 }
 

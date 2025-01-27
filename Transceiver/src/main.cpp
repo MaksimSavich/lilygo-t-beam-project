@@ -17,7 +17,8 @@
 
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 SettingsManager settingsManager(radio);
-RadioManager radioManager(radio, SerialGPS);
+HardwareSerial &gpsSerial = Serial1;
+RadioManager radioManager(radio, gpsSerial);
 SerialTaskManager serialManager(1024, 20);
 ApplicationController appController(radioManager, serialManager, settingsManager);
 

@@ -30,7 +30,7 @@ settings_packet.settings.sync_word = 0xAB
 settings_packet.settings.func_state = True
 
 # Open serial connection
-with serial.Serial('COM7', 115200, timeout=1) as ser:  # Adjust port as needed
+with serial.Serial('COM8', 115200, timeout=1) as ser:  # Adjust port as needed
     print("Transmitting in an infinite loop....")
     count = 0  # Initialize transmission counter
     last_settings_update = time.time()  # Track the last time settings were updated

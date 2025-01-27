@@ -3,6 +3,7 @@
 #include <TinyGPS++.h>
 #include "SettingsManager.h"
 #include "packet.pb.h"
+#include "LoraBoards.h"
 
 class RadioManager
 {

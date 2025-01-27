@@ -20,7 +20,13 @@ bool RadioManager::initialize(SettingsManager &settings)
     radio.setPacketSentAction(transmittedISR);
     radio.setPacketReceivedAction(receivedISR);
     configure(settings);
-    startReceive();
+    if (settings.config.func_state == FuncState_RECEIVER)
+    {
+        radio.startReceive();
+    }
+
+    transmittedFlag = true;
+    receivedFlag = true;
 
     return true;
 }
@@ -30,21 +36,25 @@ bool RadioManager::configure(const SettingsManager &settings)
     if (radio.setFrequency(settings.config.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
     {
         Serial.println("Error: Selected frequency is invalid for this module!");
+        return false;
     }
 
     if (radio.setOutputPower(settings.config.power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
     {
         Serial.println("Error: Selected output power is invalid for this module!");
+        return false;
     }
 
     if (radio.setBandwidth(settings.config.bandwidth) == RADIOLIB_ERR_INVALID_BANDWIDTH)
     {
         Serial.println("Error: Selected bandwidth is invalid for this module!");
+        return false;
     }
 
     if (radio.setSpreadingFactor(settings.config.spreading_factor) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
     {
         Serial.println("Error: Selected spreading factor is invalid for this module!");
+        return false;
     }
 
     if (radio.setCodingRate(settings.config.coding_rate) == RADIOLIB_ERR_INVALID_CODING_RATE)
@@ -55,20 +65,24 @@ bool RadioManager::configure(const SettingsManager &settings)
     if (radio.setPreambleLength(settings.config.preamble) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH)
     {
         Serial.println("Error: Selected preamble length is invalid for this module!");
+        return false;
     }
 
     if (radio.setCRC(settings.config.set_crc) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION)
     {
         Serial.println("Error: Selected CRC is invalid for this module!");
+        return false;
     }
 
     if (radio.setSyncWord(settings.config.sync_word) != RADIOLIB_ERR_NONE)
     {
         Serial.println("Error: Unable to set sync word!");
+        return false;
     }
     if (radio.setCurrentLimit(140) == RADIOLIB_ERR_INVALID_CURRENT_LIMIT)
     {
         Serial.println(F("Selected current limit is invalid for this module!"));
+        return false;
     }
 
     return true;
@@ -76,12 +90,13 @@ bool RadioManager::configure(const SettingsManager &settings)
 
 void RadioManager::transmit(const uint8_t *data, size_t length)
 {
-    if (transmittedFlag)
-    {
-        transmittedFlag = false;
+    // if (transmittedFlag)
+    // {
+    transmittedFlag = false;
+    int state = radio.startTransmit(data, 255);
 
-        int state = radio.transmit(data, length);
-    }
+    flashLed();
+    // }
 }
 
 void RadioManager::startReceive()
@@ -93,6 +108,8 @@ void RadioManager::processReceivedPacket()
 {
     if (receivedFlag)
     {
+        Serial.println("RECEIVED DEBUG");
+        flashLed();
         receivedFlag = false;
         Reception reception = Reception_init_zero;
 
@@ -107,7 +124,7 @@ void RadioManager::processReceivedPacket()
         reception.general_error = (state != RADIOLIB_ERR_NONE && !reception.crc_error);
 
         sendReceptionProto(reception);
-        startReceive();
+        radio.startReceive();
     }
 }
 
