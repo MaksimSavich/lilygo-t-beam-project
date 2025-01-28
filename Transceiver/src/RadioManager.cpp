@@ -20,10 +20,6 @@ bool RadioManager::initialize(SettingsManager &settings)
     radio.setPacketSentAction(transmittedISR);
     radio.setPacketReceivedAction(receivedISR);
     configure(settings);
-    if (settings.config.func_state == FuncState_RECEIVER)
-    {
-        radio.startReceive();
-    }
 
     // Since I don't send an initial message at startup, transmitted must be set true at init
     transmittedFlag = true;
@@ -33,6 +29,13 @@ bool RadioManager::initialize(SettingsManager &settings)
 
 bool RadioManager::configure(const SettingsManager &settings)
 {
+    radio.standby();
+
+    if (settings.config.func_state == FuncState_RECEIVER)
+    {
+        radio.startReceive();
+    }
+
     if (radio.setFrequency(settings.config.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
     {
         Serial.println("Error: Selected frequency is invalid for this module!");
@@ -90,13 +93,13 @@ bool RadioManager::configure(const SettingsManager &settings)
 
 void RadioManager::transmit(const uint8_t *data, size_t length)
 {
-    // if (transmittedFlag)
-    // {
-    transmittedFlag = false;
-    int state = radio.startTransmit(data, length);
+    if (transmittedFlag)
+    {
+        transmittedFlag = false;
+        int state = radio.startTransmit(data, length);
 
-    flashLed();
-    // }
+        flashLed();
+    }
 }
 
 void RadioManager::startReceive()

@@ -32,7 +32,6 @@ void ApplicationController::initialize()
 
     running = true;
     Serial.println("Application controller initialized");
-    settingsMgr.print();
 }
 
 void ApplicationController::run()
@@ -89,12 +88,15 @@ void ApplicationController::processProtoMessage(ProtoData *data)
 
 void ApplicationController::updateLoraSettings(const Settings &newSettings)
 {
+    Settings oldSettings = settingsMgr.config;
+    settingsMgr.config = newSettings;
     if (!radioMgr.configure(settingsMgr))
     {
-        Serial.println("Failed to update settings!\nDid not change settings!");
+        settingsMgr.config = oldSettings;
+        radioMgr.configure(settingsMgr);
+        Serial.println("Failed to update settings!\nReverted to old settings!");
         return;
     }
-    settingsMgr.config = newSettings;
     // Persist to storage
     settingsMgr.save();
 
