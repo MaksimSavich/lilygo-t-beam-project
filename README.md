@@ -1,4 +1,4 @@
-# **LoRa Transmitter and Receiver Nodes**
+# **LoRa Solar Car Transceiver System**
 
 This repository contains firmware and a Python application to develop and test LoRa-based communication nodes. The project involves a **LoRa** transceiver system implemented on two T-Beam v1.2 boards, and a **Python app** for testing and viewing data.
 
