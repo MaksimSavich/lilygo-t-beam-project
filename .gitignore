@@ -2,6 +2,8 @@
 myenv
 venv
 
+receiver_tests
+
 # Logs
 *.parquet
 
