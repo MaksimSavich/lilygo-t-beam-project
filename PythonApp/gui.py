@@ -70,7 +70,8 @@ def check_received_data():
     # Prompt user for file prefix
     file_prefix = input("Enter a name for the Parquet file: ")
 
-    ser.reset_input_buffer()  # Flush input buffer
+    # ser.flushInput()
+    # time.sleep(0.1)  # Wait for buffer to clear
     receive_count = erroneous_count = received_total = 0
     try:
         while True:
