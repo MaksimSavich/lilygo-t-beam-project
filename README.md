@@ -36,7 +36,7 @@ This repository contains firmware and a Python application to develop and test L
 ### **Python Application**
 
 1. Navigate to the `PythonApp` folder.
-2. Create a virtual environment
+2. Create a virtual environment:
 
 ```bash
 python -m venv venv
@@ -111,7 +111,7 @@ python -m venv venv
 - Use the Python app to send updates to the transmitter dynamically.
 - Connect to the receiver via serial to monitor received data.
 
-### **3. Testing with Python App**
+### **2. Testing with Python App**
 
 - Use the app to:
   - Update settings over serial.
