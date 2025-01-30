@@ -8,7 +8,7 @@ START_MARKER = b"<START>"
 END_MARKER = b"<END>"
 
 # Serial port configuration
-SERIAL_PORT = "COM8"  # Update with the correct port
+SERIAL_PORT = "COM7"  # Update with the correct port
 BAUD_RATE = 115200
 TIMEOUT = 1
 

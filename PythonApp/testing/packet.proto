@@ -5,6 +5,7 @@ enum PacketType {
     SETTINGS = 1;
     TRANSMISSION = 2;
     RECEPTION = 3;
+    REQUEST = 4;
 
 }
 
@@ -40,9 +41,16 @@ message Reception {
     bytes payload = 8;
 }
 
+message Request {
+    bool search = 1;
+    bool settings = 2;
+    bool gps = 3;
+}
+
 message Packet {
     PacketType type = 1;
     Settings settings = 2;
     Transmission transmission = 3;
     Reception received = 4;
+    Request request = 5;
 }
