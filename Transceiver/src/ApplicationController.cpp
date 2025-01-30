@@ -32,6 +32,7 @@ void ApplicationController::initialize()
 
     running = true;
     Serial.println("Application controller initialized");
+    settingsMgr.print();
 }
 
 void ApplicationController::run()
@@ -78,11 +79,20 @@ void ApplicationController::processProtoMessage(ProtoData *data)
     if (packet.type == PacketType_SETTINGS && packet.has_settings)
     {
         updateLoraSettings(packet.settings);
+        flashLed();
         Serial.println("Updated LoRa settings");
     }
     else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && settingsMgr.config.func_state == FuncState_TRANSMITTER)
     {
         radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
+    }
+    else if (packet.type == PacketType_REQUEST && packet.has_request)
+    {
+        if (packet.request.settings == true)
+        {
+            flashLed();
+            settingsMgr.sendProto();
+        }
     }
 }
 

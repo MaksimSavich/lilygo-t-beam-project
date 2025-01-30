@@ -88,6 +88,24 @@ void SettingsManager::print() const
     Serial.println(config.func_state);
 }
 
+void SettingsManager::sendProto()
+{
+    Packet packet = Packet_init_zero;
+    packet.type = PacketType_SETTINGS;
+    packet.has_settings = true;
+    packet.settings = config;
+
+    uint8_t buffer[Packet_size];
+    pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+    if (pb_encode(&stream, Packet_fields, &packet))
+    {
+        Serial.write(START_DELIMITER, START_LEN);
+        Serial.write(buffer, stream.bytes_written);
+        Serial.write(END_DELIMITER, END_LEN);
+    }
+}
+
 void SettingsManager::createDefaults()
 {
     config = {

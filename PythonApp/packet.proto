@@ -51,6 +51,6 @@ message Packet {
     PacketType type = 1;
     Settings settings = 2;
     Transmission transmission = 3;
-    Reception received = 4;
+    Reception reception = 4;
     Request request = 5;
 }

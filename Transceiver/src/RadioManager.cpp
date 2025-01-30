@@ -29,12 +29,6 @@ bool RadioManager::initialize(SettingsManager &settings)
 
 bool RadioManager::configure(const SettingsManager &settings)
 {
-    radio.standby();
-
-    if (settings.config.func_state == FuncState_RECEIVER)
-    {
-        radio.startReceive();
-    }
 
     if (radio.setFrequency(settings.config.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
     {
@@ -88,18 +82,23 @@ bool RadioManager::configure(const SettingsManager &settings)
         return false;
     }
 
+    if (settings.config.func_state == FuncState_RECEIVER)
+    {
+        startReceive();
+    }
+
     return true;
 }
 
 void RadioManager::transmit(const uint8_t *data, size_t length)
 {
-    if (transmittedFlag)
-    {
-        transmittedFlag = false;
-        int state = radio.startTransmit(data, length);
+    // if (transmittedFlag)
+    // {
+    //     transmittedFlag = false;
+    int state = radio.startTransmit(data, length);
 
-        flashLed();
-    }
+    flashLed();
+    // }
 }
 
 void RadioManager::startReceive()
@@ -116,8 +115,9 @@ void RadioManager::processReceivedPacket()
         receivedFlag = false;
         Reception reception = Reception_init_zero;
 
-        int state = radio.readData(reception.payload.bytes, 255);
-        reception.payload.size = 255;
+        size_t loraPacketLength = radio.getPacketLength();
+        int state = radio.readData(reception.payload.bytes, loraPacketLength);
+        reception.payload.size = loraPacketLength;
 
         processGPSData(reception);
 
@@ -127,7 +127,7 @@ void RadioManager::processReceivedPacket()
         reception.general_error = (state != RADIOLIB_ERR_NONE && !reception.crc_error);
 
         sendReceptionProto(reception);
-        radio.startReceive();
+        startReceive();
     }
 }
 
@@ -146,10 +146,14 @@ void RadioManager::processGPSData(Reception &reception)
 
 void RadioManager::sendReceptionProto(const Reception &reception)
 {
-    uint8_t buffer[Reception_size];
+    Packet packet = Packet_init_zero;
+    packet.has_reception = true;
+    packet.reception = reception;
+
+    uint8_t buffer[Packet_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-    if (pb_encode(&stream, Reception_fields, &reception))
+    if (pb_encode(&stream, Packet_fields, &packet))
     {
         Serial.write(START_DELIMITER, START_LEN);
         Serial.write(buffer, stream.bytes_written);

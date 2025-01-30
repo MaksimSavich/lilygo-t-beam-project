@@ -18,8 +18,14 @@ public:
     void load();
     void save();
     void print() const;
+    void sendProto();
 
 private:
+    static constexpr const char *START_DELIMITER = "<START>";
+    static constexpr const char *END_DELIMITER = "<END>";
+    static constexpr size_t START_LEN = 7; // strlen("<START>")
+    static constexpr size_t END_LEN = 5;   // strlen("<END>")
+
     SX1262 &radio;
     const char *filename = "/settings.bin";
 

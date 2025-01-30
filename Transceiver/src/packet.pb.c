@@ -15,6 +15,9 @@ PB_BIND(Transmission, Transmission, 2)
 PB_BIND(Reception, Reception, 2)
 
 
+PB_BIND(Request, Request, AUTO)
+
+
 PB_BIND(Packet, Packet, 2)
 
 

@@ -14,7 +14,8 @@ typedef enum _PacketType {
     PacketType_UNSPECIFIED = 0,
     PacketType_SETTINGS = 1,
     PacketType_TRANSMISSION = 2,
-    PacketType_RECEPTION = 3
+    PacketType_RECEPTION = 3,
+    PacketType_REQUEST = 4
 } PacketType;
 
 typedef enum _FuncState {
@@ -52,14 +53,22 @@ typedef struct _Reception {
     Reception_payload_t payload;
 } Reception;
 
+typedef struct _Request {
+    bool search;
+    bool settings;
+    bool gps;
+} Request;
+
 typedef struct _Packet {
     PacketType type;
     bool has_settings;
     Settings settings;
     bool has_transmission;
     Transmission transmission;
-    bool has_received;
-    Reception received;
+    bool has_reception;
+    Reception reception;
+    bool has_request;
+    Request request;
 } Packet;
 
 
@@ -69,14 +78,15 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _PacketType_MIN PacketType_UNSPECIFIED
-#define _PacketType_MAX PacketType_RECEPTION
-#define _PacketType_ARRAYSIZE ((PacketType)(PacketType_RECEPTION+1))
+#define _PacketType_MAX PacketType_REQUEST
+#define _PacketType_ARRAYSIZE ((PacketType)(PacketType_REQUEST+1))
 
 #define _FuncState_MIN FuncState_TRANSMITTER
 #define _FuncState_MAX FuncState_RECEIVER
 #define _FuncState_ARRAYSIZE ((FuncState)(FuncState_RECEIVER+1))
 
 #define Settings_func_state_ENUMTYPE FuncState
+
 
 
 
@@ -87,11 +97,13 @@ extern "C" {
 #define Settings_init_default                    {0, 0, 0, 0, 0, 0, 0, 0, _FuncState_MIN}
 #define Transmission_init_default                {{0, {0}}}
 #define Reception_init_default                   {0, 0, 0, 0, 0, 0, 0, {0, {0}}}
-#define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Reception_init_default}
+#define Request_init_default                     {0, 0, 0}
+#define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Reception_init_default, false, Request_init_default}
 #define Settings_init_zero                       {0, 0, 0, 0, 0, 0, 0, 0, _FuncState_MIN}
 #define Transmission_init_zero                   {{0, {0}}}
 #define Reception_init_zero                      {0, 0, 0, 0, 0, 0, 0, {0, {0}}}
-#define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Reception_init_zero}
+#define Request_init_zero                        {0, 0, 0}
+#define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Reception_init_zero, false, Request_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Settings_frequency_tag                   1
@@ -112,10 +124,14 @@ extern "C" {
 #define Reception_rssi_tag                       6
 #define Reception_snr_tag                        7
 #define Reception_payload_tag                    8
+#define Request_search_tag                       1
+#define Request_settings_tag                     2
+#define Request_gps_tag                          3
 #define Packet_type_tag                          1
 #define Packet_settings_tag                      2
 #define Packet_transmission_tag                  3
-#define Packet_received_tag                      4
+#define Packet_reception_tag                     4
+#define Packet_request_tag                       5
 
 /* Struct field encoding specification for nanopb */
 #define Settings_FIELDLIST(X, a) \
@@ -148,32 +164,44 @@ X(a, STATIC,   SINGULAR, BYTES,    payload,           8)
 #define Reception_CALLBACK NULL
 #define Reception_DEFAULT NULL
 
+#define Request_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     search,            1) \
+X(a, STATIC,   SINGULAR, BOOL,     settings,          2) \
+X(a, STATIC,   SINGULAR, BOOL,     gps,               3)
+#define Request_CALLBACK NULL
+#define Request_DEFAULT NULL
+
 #define Packet_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    type,              1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  settings,          2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  transmission,      3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  received,          4)
+X(a, STATIC,   OPTIONAL, MESSAGE,  reception,         4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  request,           5)
 #define Packet_CALLBACK NULL
 #define Packet_DEFAULT NULL
 #define Packet_settings_MSGTYPE Settings
 #define Packet_transmission_MSGTYPE Transmission
-#define Packet_received_MSGTYPE Reception
+#define Packet_reception_MSGTYPE Reception
+#define Packet_request_MSGTYPE Request
 
 extern const pb_msgdesc_t Settings_msg;
 extern const pb_msgdesc_t Transmission_msg;
 extern const pb_msgdesc_t Reception_msg;
+extern const pb_msgdesc_t Request_msg;
 extern const pb_msgdesc_t Packet_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define Settings_fields &Settings_msg
 #define Transmission_fields &Transmission_msg
 #define Reception_fields &Reception_msg
+#define Request_fields &Request_msg
 #define Packet_fields &Packet_msg
 
 /* Maximum encoded size of messages (where known) */
 #define PACKET_PB_H_MAX_SIZE                     Packet_size
-#define Packet_size                              628
+#define Packet_size                              636
 #define Reception_size                           296
+#define Request_size                             6
 #define Settings_size                            64
 #define Transmission_size                        258
 
