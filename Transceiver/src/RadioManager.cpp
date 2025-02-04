@@ -108,7 +108,7 @@ void RadioManager::startReceive()
 
 void RadioManager::processReceivedPacket()
 {
-    if (receivedFlag)
+    if (receivedFlag && transmittedFlag)
     {
         Serial.println("RECEIVED DEBUG");
         flashLed();
@@ -121,7 +121,7 @@ void RadioManager::processReceivedPacket()
 
         processGPSData(reception);
 
-        reception.rssi = radio.getRSSI();
+        reception.rssi = radio.getRSSI(false); // COME BACK TO THIS
         reception.snr = radio.getSNR();
         reception.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
         reception.general_error = (state != RADIOLIB_ERR_NONE && !reception.crc_error);
