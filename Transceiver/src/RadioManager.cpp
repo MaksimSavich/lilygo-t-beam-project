@@ -82,15 +82,10 @@ bool RadioManager::configure(const SettingsManager &settings)
         return false;
     }
 
-    if (settings.config.func_state == FuncState_RECEIVER)
-    {
-        startReceive();
-    }
-
     return true;
 }
 
-void RadioManager::transmit(const uint8_t *data, size_t length)
+int RadioManager::transmit(const uint8_t *data, size_t length)
 {
     // if (transmittedFlag)
     // {
@@ -98,6 +93,8 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
     int state = radio.startTransmit(data, length);
 
     flashLed();
+
+    return state;
     // }
 }
 
@@ -108,47 +105,87 @@ void RadioManager::startReceive()
 
 void RadioManager::processReceivedPacket()
 {
-    if (receivedFlag && transmittedFlag)
+    if (receivedFlag)
     {
         Serial.println("RECEIVED DEBUG");
         flashLed();
         receivedFlag = false;
-        Reception reception = Reception_init_zero;
+        Log log = Log_init_zero;
 
         size_t loraPacketLength = radio.getPacketLength();
-        int state = radio.readData(reception.payload.bytes, loraPacketLength);
-        reception.payload.size = loraPacketLength;
+        int state = radio.readData(log.payload.bytes, loraPacketLength);
+        log.payload.size = loraPacketLength;
 
-        processGPSData(reception);
+        log.has_gps = true;
+        processGPSData(log.gps);
 
-        reception.rssi = radio.getRSSI(false); // COME BACK TO THIS
-        reception.snr = radio.getSNR();
-        reception.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
-        reception.general_error = (state != RADIOLIB_ERR_NONE && !reception.crc_error);
+        log.rssi = radio.getRSSI(false); // COME BACK TO THIS
+        log.snr = radio.getSNR();
+        log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
+        log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
 
-        sendReceptionProto(reception);
+        sendReceptionProto(log);
         startReceive();
     }
 }
 
-void RadioManager::processGPSData(Reception &reception)
+int RadioManager::processTransmitLog(int state)
+{
+    Log log = Log_init_zero;
+
+    size_t loraPacketLength = radio.getPacketLength();
+    int state = radio.readData(log.payload.bytes, loraPacketLength);
+    log.payload.size = loraPacketLength;
+
+    log.has_gps = true;
+    processGPSData(log.gps);
+    log.rssi = radio.getRSSI(false); // COME BACK TO THIS
+    log.snr = 0;
+    log.crc_error = false;
+    log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
+
+    sendReceptionProto(log);
+    startReceive();
+}
+
+void RadioManager::processGPSData(Gps &gpsData)
 {
     while (gpsSerial.available())
     {
         if (gps.encode(gpsSerial.read()))
         {
-            reception.latitude = gps.location.isValid() ? gps.location.lat() : 0;
-            reception.longitude = gps.location.isValid() ? gps.location.lng() : 0;
-            reception.sattelites = gps.satellites.isValid() ? gps.satellites.value() : 0;
+            gpsData.latitude = gps.location.isValid() ? gps.location.lat() : 0;
+            gpsData.longitude = gps.location.isValid() ? gps.location.lng() : 0;
+            gpsData.satellites = gps.satellites.isValid() ? gps.satellites.value() : 0;
         }
     }
 }
 
-void RadioManager::sendReceptionProto(const Reception &reception)
+void RadioManager::sendReceptionProto(const Log &log)
 {
     Packet packet = Packet_init_zero;
-    packet.has_reception = true;
-    packet.reception = reception;
+    packet.has_log = true;
+    packet.type = PacketType_LOG;
+    packet.log = log;
+
+    uint8_t buffer[Packet_size];
+    pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+    if (pb_encode(&stream, Packet_fields, &packet))
+    {
+        Serial.write(START_DELIMITER, START_LEN);
+        Serial.write(buffer, stream.bytes_written);
+        Serial.write(END_DELIMITER, END_LEN);
+    }
+}
+
+void RadioManager::ProtoSendGPS()
+{
+    Packet packet = Packet_init_zero;
+    packet.has_gps = true;
+    packet.type = PacketType_GPS;
+
+    processGPSData(packet.gps);
 
     uint8_t buffer[Packet_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));

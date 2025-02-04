@@ -84,8 +84,6 @@ void SettingsManager::print() const
     Serial.println(config.set_crc ? "True" : "False");
     Serial.print("Sync Word: ");
     Serial.println(config.sync_word);
-    Serial.print("Func State: ");
-    Serial.println(config.func_state);
 }
 
 void SettingsManager::sendProto()
@@ -117,7 +115,7 @@ void SettingsManager::createDefaults()
         .preamble = 8,
         .set_crc = true,
         .sync_word = 0xAB,
-        .func_state = FuncState_TRANSMITTER};
+    };
 }
 
 bool SettingsManager::validate() const

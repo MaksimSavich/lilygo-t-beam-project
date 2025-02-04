@@ -1,5 +1,6 @@
 import time
 import random
+import proto.packet_pb2 as packet_pb2
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
@@ -13,7 +14,7 @@ from lora_tui.utils import parse_boolean_input
 
 console = Console()
 
-def display_menu_and_settings(lora_settings):
+def display_menu_and_settings(lora_settings, gps_data):
     """Display the main menu options and current LoRa settings side by side."""
     options_table = Table(title="Options")
     options_table.add_column("Option", justify="center")
@@ -28,13 +29,23 @@ def display_menu_and_settings(lora_settings):
     settings_table.add_column("Setting", justify="left")
     settings_table.add_column("Value", justify="left")
 
+    gps_table = Table(title="GPS Status")
+    gps_table.add_column("Data", justify="left")
+    gps_table.add_column("Value", justify="left")
+
     if lora_settings:
         for key, value in lora_settings.items():
             settings_table.add_row(key, str(value))
     else:
         settings_table.add_row("No settings", "N/A")
 
-    console.print(Columns([options_table, settings_table]))
+    if gps_data:
+        for key, value in gps_data.items():
+            gps_table.add_row(key, str(value))
+    else:
+        gps_table.add_row("GPS Info", "N/A")
+
+    console.print(Columns([options_table, settings_table, gps_table]))
 
 def main_menu():
     lora_device = None
@@ -45,7 +56,8 @@ def main_menu():
         port_display = "[bold red]None[/bold red]" if selected_port is None else f"[bold green]{selected_port}[/bold green]"
         console.print(Panel(f"[bold cyan]LoRa TUI Test Application[/bold cyan] | Port: {port_display}"))
         current_settings = lora_device.lora_settings if lora_device else {}
-        display_menu_and_settings(current_settings)
+        current_gps = lora_device.gps_data if lora_device else {}
+        display_menu_and_settings(current_settings, current_gps)
         choice = Prompt.ask("Choose an option", choices=["1", "2", "3", "4", "5"])
 
         if choice == "1":
@@ -67,9 +79,11 @@ def main_menu():
             lora_device = LoRaDevice(ser)
             request_lora_settings(lora_device)
             lora_device.check_for_settings_packet()
+            lora_device.log_gps_data()
 
         elif choice == "2":
             if lora_device and lora_device.ser:
+                lora_device.change_state(packet_pb2.State.TRANSMITTER)
                 console.print("Press Ctrl+C to stop transmission.", style="bold yellow")
                 try:
                     num_bytes = int(Prompt.ask("Enter the number of random bytes to send (0-255)", default="10"))
@@ -83,8 +97,9 @@ def main_menu():
                             # lora_device.check_ack()
                         else:
                             console.print("Invalid byte count.", style="bold red")
-                        time.sleep(0.200)
+                        time.sleep(0.2)
                 except KeyboardInterrupt:
+                    lora_device.change_state(packet_pb2.State.STANDBY)
                     console.print("\nTransmission stopped.", style="bold yellow")
             else:
                 console.print("No serial port selected. Please select a port first.", style="bold red")
@@ -92,7 +107,9 @@ def main_menu():
 
         elif choice == "3":
             if lora_device and lora_device.ser:
+                lora_device.change_state(packet_pb2.State.RECEIVER)
                 lora_device.check_received_data()
+                lora_device.change_state(packet_pb2.State.STANDBY)
             else:
                 console.print("No serial port selected. Please select a port first.", style="bold red")
                 console.input("Press Enter to return to the menu...")

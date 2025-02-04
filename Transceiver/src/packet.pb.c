@@ -12,7 +12,10 @@ PB_BIND(Settings, Settings, AUTO)
 PB_BIND(Transmission, Transmission, 2)
 
 
-PB_BIND(Reception, Reception, 2)
+PB_BIND(Gps, Gps, AUTO)
+
+
+PB_BIND(Log, Log, 2)
 
 
 PB_BIND(Request, Request, AUTO)

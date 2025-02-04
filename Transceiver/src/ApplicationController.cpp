@@ -50,13 +50,15 @@ void ApplicationController::run()
     }
 
     // Handle current operation mode
-    switch (settingsMgr.config.func_state)
+    switch (radioMgr.getState())
     {
-    case FuncState_TRANSMITTER:
+    case State_TRANSMITTER:
         handleTransmissionMode();
         break;
-    case FuncState_RECEIVER:
+    case State_RECEIVER:
         handleReceptionMode();
+        break;
+    case State_STANDBY:
         break;
     default:
         Serial.println("Invalid operation mode!");
@@ -82,9 +84,10 @@ void ApplicationController::processProtoMessage(ProtoData *data)
         flashLed();
         Serial.println("Updated LoRa settings");
     }
-    else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && settingsMgr.config.func_state == FuncState_TRANSMITTER)
+    else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && radioMgr.getState() == State_TRANSMITTER)
     {
-        radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
+        int state = radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
+        radioMgr.processTransmitLog(state);
     }
     else if (packet.type == PacketType_REQUEST && packet.has_request)
     {
@@ -92,6 +95,20 @@ void ApplicationController::processProtoMessage(ProtoData *data)
         {
             flashLed();
             settingsMgr.sendProto();
+        }
+        if (packet.request.stateChange != radioMgr.getState())
+        {
+            radioMgr.standby();
+            radioMgr.setState(packet.request.stateChange);
+            if (packet.request.stateChange == State_RECEIVER)
+            {
+                radioMgr.startReceive();
+            }
+        }
+        if (packet.request.gps == true)
+        {
+            flashLed();
+            radioMgr.ProtoSendGPS();
         }
     }
 }

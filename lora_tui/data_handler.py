@@ -1,5 +1,3 @@
-# lora_tui/data_handler.py
-
 import os
 import pandas as pd
 from datetime import datetime
@@ -18,4 +16,3 @@ def save_reception_data(reception_data, file_prefix):
     df = pd.DataFrame(reception_data)
     df.to_parquet(parquet_file, index=False)
     
-    print(f"Saved reception data to {parquet_file}")

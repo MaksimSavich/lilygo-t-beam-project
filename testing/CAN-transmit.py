@@ -1,4 +1,4 @@
-import packet_pb2
+import proto.packet_pb2 as packet_pb2
 import time
 import serial
 import threading

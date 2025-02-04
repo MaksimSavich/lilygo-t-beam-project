@@ -14,10 +14,15 @@ public:
     void transmit(const uint8_t *data, size_t length);
     void startReceive();
     void processReceivedPacket();
+    int processTransmitLog(int);
     void handleTransmitted() { transmittedFlag = true; }
     void handleReceived() { receivedFlag = true; }
     bool isTransmitted() const { return transmittedFlag; }
     bool isReceived() const { return receivedFlag; }
+    State getState() { return state; }
+    void setState(State newState) { state = newState; }
+    void ProtoSendGPS();
+    void standby() { radio.standby(); };
 
 private:
     static constexpr const char *START_DELIMITER = "<START>";
@@ -40,9 +45,10 @@ private:
     SX1262 &radio;
     HardwareSerial &gpsSerial;
     TinyGPSPlus gps;
+    State state = State_STANDBY;
     volatile bool transmittedFlag;
     volatile bool receivedFlag;
 
-    void sendReceptionProto(const Reception &reception);
-    void processGPSData(Reception &reception);
+    void sendReceptionProto(const Log &log);
+    void processGPSData(Gps &gps);
 };

@@ -4,15 +4,20 @@ enum PacketType {
     UNSPECIFIED = 0;
     SETTINGS = 1;
     TRANSMISSION = 2;
-    RECEPTION = 3;
+    LOG = 3;
     REQUEST = 4;
+    GPS = 5;
+
 
 }
 
-enum FuncState {
-    TRANSMITTER = 0;
-    RECEIVER = 1;
+enum State {
+    STANDBY = 0;
+    TRANSMITTER = 1;
+    RECEIVER = 2;
 }
+
+
 
 message Settings {
     float frequency = 1;
@@ -23,34 +28,39 @@ message Settings {
     int32 preamble = 6;
     bool set_crc = 7;
     uint32 sync_word = 8;
-    FuncState func_state = 9;
 }
 
 message Transmission {
     bytes payload = 1;
 }
 
-message Reception {
+message Gps {
+    double latitude = 1;
+    double longitude = 2;
+    uint32 satellites = 3;
+}
+
+message Log {
     bool crc_error = 1;
     bool general_error = 2;
-    double latitude = 3;
-    double longitude = 4;
-    uint32 sattelites = 5;
-    float rssi = 6;
-    float snr = 7;
-    bytes payload = 8;
+    Gps gps = 3;
+    float rssi = 4;
+    float snr = 5;
+    bytes payload = 6;
 }
 
 message Request {
     bool search = 1;
     bool settings = 2;
     bool gps = 3;
+    State stateChange = 4;
 }
 
 message Packet {
     PacketType type = 1;
     Settings settings = 2;
     Transmission transmission = 3;
-    Reception reception = 4;
+    Log log = 4;
     Request request = 5;
+    Gps gps = 6;
 }

@@ -14,6 +14,7 @@ class LoRaDevice:
         self.erroneous_count = 0
         self.received_total = 0
         self.lora_settings = {}
+        self.gps_data = {}
         self.lock = threading.Lock()
         self.console = Console()
 
@@ -45,7 +46,6 @@ class LoRaDevice:
             "Preamble": settings.preamble,
             "CRC Enabled": settings.set_crc,
             "Sync Word": hex(settings.sync_word),
-            "Function State": "Receiver" if settings.func_state else "Transmitter",
         }
 
     def process_serial_packets(self, callback, exit_on_condition=False):
@@ -78,6 +78,7 @@ class LoRaDevice:
                             if exit_on_condition:
                                 return
                         except Exception as e:
+                            self.console.print(received_packet)
                             self.console.print(f"Failed to decode message: {e}", style="bold red")
                 time.sleep(0.2)
         except KeyboardInterrupt:
@@ -109,7 +110,7 @@ class LoRaDevice:
         def data_callback(packet):
             with self.lock:
                 self.received_total += 1
-                if packet.reception.crc_error:
+                if packet.log.crc_error:
                     self.erroneous_count += 1
                 else:
                     self.receive_count += 1
@@ -121,17 +122,17 @@ class LoRaDevice:
                     end="\r", style="bold green"
                 )
 
-                if packet.HasField("reception"):
+                if packet.HasField("log"):
                     reception_data = {
                         "timestamp": datetime.utcnow().isoformat(),
-                        "crc_error": packet.reception.crc_error,
-                        "general_error": packet.reception.general_error,
-                        "latitude": packet.reception.latitude,
-                        "longitude": packet.reception.longitude,
-                        "num_satellites": packet.reception.sattelites,
-                        "rssi": packet.reception.rssi,
-                        "snr": packet.reception.snr,
-                        "payload": packet.reception.payload,
+                        "crc_error": packet.log.crc_error,
+                        "general_error": packet.log.general_error,
+                        "latitude": packet.log.gps.latitude,
+                        "longitude": packet.log.gps.longitude,
+                        "num_satellites": packet.log.gps.satellites,
+                        "rssi": packet.log.rssi,
+                        "snr": packet.log.snr,
+                        "payload": packet.log.payload,
                     }
                     reception_data_list.append(reception_data)
 
@@ -143,6 +144,40 @@ class LoRaDevice:
             if reception_data_list:
                 save_reception_data(reception_data_list, file_prefix)
 
+    def log_gps_data(self):
+        def log_gps_callback(packet):
+            if packet.type == packet_pb2.PacketType.GPS:
+                gps = packet.gps
+                self.gps_data = {
+                    "Latitude": gps.latitude,
+                    "Longitude": gps.longitude,
+                    "satellites": gps.satellites,
+        }
+
+        # Exit after processing the first valid SETTINGS packet.
+        self.ser.reset_input_buffer()  # Clears the input buffer
+        if self.ser:
+            self.console.print("Requesting current LoRa GPS status from the node...", style="bold yellow")
+            gps_request = packet_pb2.Packet()
+            gps_request.type = packet_pb2.PacketType.REQUEST
+            gps_request.request.gps = True
+            serialized_request = gps_request.SerializeToString()
+            framed_request = START_MARKER + serialized_request + END_MARKER
+            self.ser.write(framed_request)
+            self.console.print("Waiting for LoRa node to respond with GPS status...", style="bold yellow")
+            
+        self.process_serial_packets(log_gps_callback, exit_on_condition=True)
+
+    def change_state(self, state):
+        if self.ser:
+            stateChange_request = packet_pb2.Packet()
+            stateChange_request.type = packet_pb2.PacketType.REQUEST
+            stateChange_request.request.stateChange = state
+            serialized_request = stateChange_request.SerializeToString()
+            framed_request = START_MARKER + serialized_request + END_MARKER
+            self.ser.write(framed_request)
+
+
     def check_ack(self):
         """
         Monitor for ACK packets.
@@ -152,7 +187,7 @@ class LoRaDevice:
         def ack_callback(packet):
             with self.lock:
                 self.received_total += 1
-                if packet.reception.crc_error:
+                if packet.log.crc_error:
                     self.erroneous_count += 1
                 else:
                     self.receive_count += 1

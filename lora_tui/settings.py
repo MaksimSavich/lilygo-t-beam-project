@@ -3,7 +3,7 @@ import time
 from lora_tui.constants import START_MARKER, END_MARKER
 
 def update_settings(device, frequency, power, bandwidth, spreading_factor,
-                    coding_rate, preamble, set_crc, sync_word, func_state):
+                    coding_rate, preamble, set_crc, sync_word):
     """
     Build and send a SETTINGS packet through the given LoRa device.
     """
@@ -18,7 +18,7 @@ def update_settings(device, frequency, power, bandwidth, spreading_factor,
         settings_packet.settings.preamble = preamble
         settings_packet.settings.set_crc = set_crc
         settings_packet.settings.sync_word = sync_word
-        settings_packet.settings.func_state = func_state
+
         
         serialized = settings_packet.SerializeToString()
         framed = START_MARKER + serialized + END_MARKER

@@ -24,25 +24,27 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cpacket.proto\"\xc4\x01\n\x08Settings\x12\x11\n\tfrequency\x18\x01 \x01(\x02\x12\r\n\x05power\x18\x02 \x01(\x05\x12\x11\n\tbandwidth\x18\x03 \x01(\x02\x12\x18\n\x10spreading_factor\x18\x04 \x01(\x05\x12\x13\n\x0b\x63oding_rate\x18\x05 \x01(\x05\x12\x10\n\x08preamble\x18\x06 \x01(\x05\x12\x0f\n\x07set_crc\x18\x07 \x01(\x08\x12\x11\n\tsync_word\x18\x08 \x01(\r\x12\x1e\n\nfunc_state\x18\t \x01(\x0e\x32\n.FuncState\"\x1f\n\x0cTransmission\x12\x0f\n\x07payload\x18\x01 \x01(\x0c\"\x9a\x01\n\tReception\x12\x11\n\tcrc_error\x18\x01 \x01(\x08\x12\x15\n\rgeneral_error\x18\x02 \x01(\x08\x12\x10\n\x08latitude\x18\x03 \x01(\x01\x12\x11\n\tlongitude\x18\x04 \x01(\x01\x12\x12\n\nsattelites\x18\x05 \x01(\r\x12\x0c\n\x04rssi\x18\x06 \x01(\x02\x12\x0b\n\x03snr\x18\x07 \x01(\x02\x12\x0f\n\x07payload\x18\x08 \x01(\x0c\"8\n\x07Request\x12\x0e\n\x06search\x18\x01 \x01(\x08\x12\x10\n\x08settings\x18\x02 \x01(\x08\x12\x0b\n\x03gps\x18\x03 \x01(\x08\"\x9f\x01\n\x06Packet\x12\x19\n\x04type\x18\x01 \x01(\x0e\x32\x0b.PacketType\x12\x1b\n\x08settings\x18\x02 \x01(\x0b\x32\t.Settings\x12#\n\x0ctransmission\x18\x03 \x01(\x0b\x32\r.Transmission\x12\x1d\n\treception\x18\x04 \x01(\x0b\x32\n.Reception\x12\x19\n\x07request\x18\x05 \x01(\x0b\x32\x08.Request*Y\n\nPacketType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x0c\n\x08SETTINGS\x10\x01\x12\x10\n\x0cTRANSMISSION\x10\x02\x12\r\n\tRECEPTION\x10\x03\x12\x0b\n\x07REQUEST\x10\x04**\n\tFuncState\x12\x0f\n\x0bTRANSMITTER\x10\x00\x12\x0c\n\x08RECEIVER\x10\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cpacket.proto\"\xa4\x01\n\x08Settings\x12\x11\n\tfrequency\x18\x01 \x01(\x02\x12\r\n\x05power\x18\x02 \x01(\x05\x12\x11\n\tbandwidth\x18\x03 \x01(\x02\x12\x18\n\x10spreading_factor\x18\x04 \x01(\x05\x12\x13\n\x0b\x63oding_rate\x18\x05 \x01(\x05\x12\x10\n\x08preamble\x18\x06 \x01(\x05\x12\x0f\n\x07set_crc\x18\x07 \x01(\x08\x12\x11\n\tsync_word\x18\x08 \x01(\r\"\x1f\n\x0cTransmission\x12\x0f\n\x07payload\x18\x01 \x01(\x0c\">\n\x03Gps\x12\x10\n\x08latitude\x18\x01 \x01(\x01\x12\x11\n\tlongitude\x18\x02 \x01(\x01\x12\x12\n\nsatellites\x18\x03 \x01(\r\"n\n\x03Log\x12\x11\n\tcrc_error\x18\x01 \x01(\x08\x12\x15\n\rgeneral_error\x18\x02 \x01(\x08\x12\x11\n\x03gps\x18\x03 \x01(\x0b\x32\x04.Gps\x12\x0c\n\x04rssi\x18\x04 \x01(\x02\x12\x0b\n\x03snr\x18\x05 \x01(\x02\x12\x0f\n\x07payload\x18\x06 \x01(\x0c\"U\n\x07Request\x12\x0e\n\x06search\x18\x01 \x01(\x08\x12\x10\n\x08settings\x18\x02 \x01(\x08\x12\x0b\n\x03gps\x18\x03 \x01(\x08\x12\x1b\n\x0bstateChange\x18\x04 \x01(\x0e\x32\x06.State\"\xa6\x01\n\x06Packet\x12\x19\n\x04type\x18\x01 \x01(\x0e\x32\x0b.PacketType\x12\x1b\n\x08settings\x18\x02 \x01(\x0b\x32\t.Settings\x12#\n\x0ctransmission\x18\x03 \x01(\x0b\x32\r.Transmission\x12\x11\n\x03log\x18\x04 \x01(\x0b\x32\x04.Log\x12\x19\n\x07request\x18\x05 \x01(\x0b\x32\x08.Request\x12\x11\n\x03gps\x18\x06 \x01(\x0b\x32\x04.Gps*\\\n\nPacketType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x0c\n\x08SETTINGS\x10\x01\x12\x10\n\x0cTRANSMISSION\x10\x02\x12\x07\n\x03LOG\x10\x03\x12\x0b\n\x07REQUEST\x10\x04\x12\x07\n\x03GPS\x10\x05*3\n\x05State\x12\x0b\n\x07STANDBY\x10\x00\x12\x0f\n\x0bTRANSMITTER\x10\x01\x12\x0c\n\x08RECEIVER\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'packet_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_PACKETTYPE']._serialized_start=625
-  _globals['_PACKETTYPE']._serialized_end=714
-  _globals['_FUNCSTATE']._serialized_start=716
-  _globals['_FUNCSTATE']._serialized_end=758
+  _globals['_PACKETTYPE']._serialized_start=648
+  _globals['_PACKETTYPE']._serialized_end=740
+  _globals['_STATE']._serialized_start=742
+  _globals['_STATE']._serialized_end=793
   _globals['_SETTINGS']._serialized_start=17
-  _globals['_SETTINGS']._serialized_end=213
-  _globals['_TRANSMISSION']._serialized_start=215
-  _globals['_TRANSMISSION']._serialized_end=246
-  _globals['_RECEPTION']._serialized_start=249
-  _globals['_RECEPTION']._serialized_end=403
-  _globals['_REQUEST']._serialized_start=405
-  _globals['_REQUEST']._serialized_end=461
-  _globals['_PACKET']._serialized_start=464
-  _globals['_PACKET']._serialized_end=623
+  _globals['_SETTINGS']._serialized_end=181
+  _globals['_TRANSMISSION']._serialized_start=183
+  _globals['_TRANSMISSION']._serialized_end=214
+  _globals['_GPS']._serialized_start=216
+  _globals['_GPS']._serialized_end=278
+  _globals['_LOG']._serialized_start=280
+  _globals['_LOG']._serialized_end=390
+  _globals['_REQUEST']._serialized_start=392
+  _globals['_REQUEST']._serialized_end=477
+  _globals['_PACKET']._serialized_start=480
+  _globals['_PACKET']._serialized_end=646
 # @@protoc_insertion_point(module_scope)
