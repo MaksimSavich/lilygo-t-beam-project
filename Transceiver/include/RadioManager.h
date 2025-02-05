@@ -11,10 +11,10 @@ public:
     RadioManager(SX1262 &radio, HardwareSerial &gpsSerial);
     bool initialize(SettingsManager &settings);
     bool configure(const SettingsManager &settings);
-    void transmit(const uint8_t *data, size_t length);
+    int transmit(const uint8_t *data, size_t length);
     void startReceive();
     void processReceivedPacket();
-    int processTransmitLog(int);
+    void processTransmitLog(int);
     void handleTransmitted() { transmittedFlag = true; }
     void handleReceived() { receivedFlag = true; }
     bool isTransmitted() const { return transmittedFlag; }

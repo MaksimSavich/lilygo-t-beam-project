@@ -88,16 +88,16 @@ def main_menu():
                 try:
                     num_bytes = int(Prompt.ask("Enter the number of random bytes to send (0-255)", default="10"))
                     count = 0
-                    while True:
-                        if 0 <= num_bytes <= 255:
-                            payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-                            lora_device.send_transmission(payload)
-                            count += 1
-                            console.print(f"Transmissions: {count}, Bytes per Transmission: {num_bytes}", style="bold green", end="\r")
-                            # lora_device.check_ack()
-                        else:
-                            console.print("Invalid byte count.", style="bold red")
-                        time.sleep(0.2)
+                    # while True:
+                    if 0 <= num_bytes <= 255:
+
+                        lora_device.check_transmit_log(num_bytes)
+                        count += 1
+                        console.print(f"Transmissions: {count}, Bytes per Transmission: {num_bytes}", style="bold green", end="\r")
+                        # lora_device.check_ack()
+                    else:
+                        console.print("Invalid byte count.", style="bold red")
+                    time.sleep(0.2)
                 except KeyboardInterrupt:
                     lora_device.change_state(packet_pb2.State.STANDBY)
                     console.print("\nTransmission stopped.", style="bold yellow")

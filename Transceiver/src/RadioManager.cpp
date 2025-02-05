@@ -129,13 +129,9 @@ void RadioManager::processReceivedPacket()
     }
 }
 
-int RadioManager::processTransmitLog(int state)
+void RadioManager::processTransmitLog(int state)
 {
     Log log = Log_init_zero;
-
-    size_t loraPacketLength = radio.getPacketLength();
-    int state = radio.readData(log.payload.bytes, loraPacketLength);
-    log.payload.size = loraPacketLength;
 
     log.has_gps = true;
     processGPSData(log.gps);
@@ -145,7 +141,6 @@ int RadioManager::processTransmitLog(int state)
     log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
 
     sendReceptionProto(log);
-    startReceive();
 }
 
 void RadioManager::processGPSData(Gps &gpsData)

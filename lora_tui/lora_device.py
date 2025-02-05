@@ -1,4 +1,5 @@
 import time
+import random
 import threading
 from datetime import datetime
 import proto.packet_pb2 as packet_pb2
@@ -135,6 +136,55 @@ class LoRaDevice:
                         "payload": packet.log.payload,
                     }
                     reception_data_list.append(reception_data)
+
+        try:
+            self.ser.reset_input_buffer()  # Clears the input buffer
+            self.process_serial_packets(data_callback)
+        except KeyboardInterrupt:
+            self.console.print("\nReception monitoring stopped.", style="bold yellow")
+            if reception_data_list:
+                save_reception_data(reception_data_list, file_prefix)
+
+    def check_transmit_log(self, num_bytes):
+        """
+        Monitor incoming data, update statistics, and save data on exit.
+        """
+        self.console.print("Checking for received data... Press Ctrl+C to stop.", style="bold yellow")
+        reception_data_list = []
+        file_prefix = input("Enter a name for the Parquet file: ")
+        payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+        self.send_transmission(payload)
+
+        def data_callback(packet):
+            with self.lock:
+                self.received_total += 1
+                if packet.log.crc_error:
+                    self.erroneous_count += 1
+                else:
+                    self.receive_count += 1
+
+                # success_rate = (self.receive_count / self.received_total) * 100 if self.received_total > 0 else 0
+                # self.console.print(
+                #     f"Total: {self.received_total} | Success: {self.receive_count} | "
+                #     f"Errors: {self.erroneous_count} | Success Rate: {success_rate:.2f}%",
+                #     end="\r", style="bold green"
+                # )
+
+                if packet.HasField("log"):
+                    reception_data = {
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "crc_error": packet.log.crc_error,
+                        "general_error": packet.log.general_error,
+                        "latitude": packet.log.gps.latitude,
+                        "longitude": packet.log.gps.longitude,
+                        "num_satellites": packet.log.gps.satellites,
+                        "rssi": packet.log.rssi,
+                        "snr": packet.log.snr,
+                        "payload": packet.log.payload,
+                    }
+                    reception_data_list.append(reception_data)
+                payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+                self.send_transmission(payload)
 
         try:
             self.ser.reset_input_buffer()  # Clears the input buffer
