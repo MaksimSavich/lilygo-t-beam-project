@@ -16,7 +16,8 @@ typedef enum _PacketType {
     PacketType_TRANSMISSION = 2,
     PacketType_LOG = 3,
     PacketType_REQUEST = 4,
-    PacketType_GPS = 5
+    PacketType_GPS = 5,
+    PacketType_ACK = 6
 } PacketType;
 
 typedef enum _State {
@@ -78,6 +79,7 @@ typedef struct _Packet {
     Request request;
     bool has_gps;
     Gps gps;
+    bool ack;
 } Packet;
 
 
@@ -87,8 +89,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _PacketType_MIN PacketType_UNSPECIFIED
-#define _PacketType_MAX PacketType_GPS
-#define _PacketType_ARRAYSIZE ((PacketType)(PacketType_GPS+1))
+#define _PacketType_MAX PacketType_ACK
+#define _PacketType_ARRAYSIZE ((PacketType)(PacketType_ACK+1))
 
 #define _State_MIN State_STANDBY
 #define _State_MAX State_RECEIVER
@@ -109,13 +111,13 @@ extern "C" {
 #define Gps_init_default                         {0, 0, 0}
 #define Log_init_default                         {0, 0, false, Gps_init_default, 0, 0, {0, {0}}}
 #define Request_init_default                     {0, 0, 0, _State_MIN}
-#define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Log_init_default, false, Request_init_default, false, Gps_init_default}
+#define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Log_init_default, false, Request_init_default, false, Gps_init_default, 0}
 #define Settings_init_zero                       {0, 0, 0, 0, 0, 0, 0, 0}
 #define Transmission_init_zero                   {{0, {0}}}
 #define Gps_init_zero                            {0, 0, 0}
 #define Log_init_zero                            {0, 0, false, Gps_init_zero, 0, 0, {0, {0}}}
 #define Request_init_zero                        {0, 0, 0, _State_MIN}
-#define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Log_init_zero, false, Request_init_zero, false, Gps_init_zero}
+#define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Log_init_zero, false, Request_init_zero, false, Gps_init_zero, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Settings_frequency_tag                   1
@@ -146,6 +148,7 @@ extern "C" {
 #define Packet_log_tag                           4
 #define Packet_request_tag                       5
 #define Packet_gps_tag                           6
+#define Packet_ack_tag                           7
 
 /* Struct field encoding specification for nanopb */
 #define Settings_FIELDLIST(X, a) \
@@ -197,7 +200,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  settings,          2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  transmission,      3) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  log,               4) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  request,           5) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  gps,               6)
+X(a, STATIC,   OPTIONAL, MESSAGE,  gps,               6) \
+X(a, STATIC,   SINGULAR, BOOL,     ack,               7)
 #define Packet_CALLBACK NULL
 #define Packet_DEFAULT NULL
 #define Packet_settings_MSGTYPE Settings
@@ -225,7 +229,7 @@ extern const pb_msgdesc_t Packet_msg;
 #define Gps_size                                 24
 #define Log_size                                 298
 #define PACKET_PB_H_MAX_SIZE                     Packet_size
-#define Packet_size                              664
+#define Packet_size                              666
 #define Request_size                             8
 #define Settings_size                            62
 #define Transmission_size                        258

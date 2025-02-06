@@ -14,6 +14,7 @@ class LoRaDevice:
         self.receive_count = 0
         self.erroneous_count = 0
         self.received_total = 0
+        self.count = 0
         self.lora_settings = {}
         self.gps_data = {}
         self.lock = threading.Lock()
@@ -30,8 +31,10 @@ class LoRaDevice:
             serialized = transmission_packet.SerializeToString()
             framed = START_MARKER + serialized + END_MARKER
             self.ser.write(framed)
-            with self.lock:
-                self.transmit_count += 1
+
+            self.transmit_count += 1
+            self.console.print(f"Sent transmission #{self.transmit_count} with payload: {payload}", style="dim")
+            time.sleep(.02)
 
     def update_lora_settings(self, packet):
         """
@@ -81,7 +84,6 @@ class LoRaDevice:
                         except Exception as e:
                             self.console.print(received_packet)
                             self.console.print(f"Failed to decode message: {e}", style="bold red")
-                time.sleep(0.2)
         except KeyboardInterrupt:
             self.console.print("\nProcessing stopped.", style="bold yellow")
             raise
@@ -109,33 +111,32 @@ class LoRaDevice:
         self.receive_count = self.erroneous_count = self.received_total = 0
 
         def data_callback(packet):
-            with self.lock:
-                self.received_total += 1
-                if packet.log.crc_error:
-                    self.erroneous_count += 1
-                else:
-                    self.receive_count += 1
+            self.received_total += 1
+            if packet.log.crc_error:
+                self.erroneous_count += 1
+            else:
+                self.receive_count += 1
 
-                success_rate = (self.receive_count / self.received_total) * 100 if self.received_total > 0 else 0
-                self.console.print(
-                    f"Total: {self.received_total} | Success: {self.receive_count} | "
-                    f"Errors: {self.erroneous_count} | Success Rate: {success_rate:.2f}%",
-                    end="\r", style="bold green"
-                )
+            success_rate = (self.receive_count / self.received_total) * 100 if self.received_total > 0 else 0
+            self.console.print(
+                f"Total: {self.received_total} | Success: {self.receive_count} | "
+                f"Errors: {self.erroneous_count} | Success Rate: {success_rate:.2f}%",
+                end="\r", style="bold green"
+            )
 
-                if packet.HasField("log"):
-                    reception_data = {
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "crc_error": packet.log.crc_error,
-                        "general_error": packet.log.general_error,
-                        "latitude": packet.log.gps.latitude,
-                        "longitude": packet.log.gps.longitude,
-                        "num_satellites": packet.log.gps.satellites,
-                        "rssi": packet.log.rssi,
-                        "snr": packet.log.snr,
-                        "payload": packet.log.payload,
-                    }
-                    reception_data_list.append(reception_data)
+            if packet.HasField("log"):
+                reception_data = {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "crc_error": packet.log.crc_error,
+                    "general_error": packet.log.general_error,
+                    "latitude": packet.log.gps.latitude,
+                    "longitude": packet.log.gps.longitude,
+                    "num_satellites": packet.log.gps.satellites,
+                    "rssi": packet.log.rssi,
+                    "snr": packet.log.snr,
+                    "payload": packet.log.payload,
+                }
+                reception_data_list.append(reception_data)
 
         try:
             self.ser.reset_input_buffer()  # Clears the input buffer
@@ -147,52 +148,68 @@ class LoRaDevice:
 
     def check_transmit_log(self, num_bytes):
         """
-        Monitor incoming data, update statistics, and save data on exit.
+        Continuously send transmissions and log each transmit log received from the LoRa device.
+        Each transmit log is printed to the console and stored in self.transmit_logs.
+        The process runs continuously until interrupted by the user.
         """
-        self.console.print("Checking for received data... Press Ctrl+C to stop.", style="bold yellow")
-        reception_data_list = []
-        file_prefix = input("Enter a name for the Parquet file: ")
-        payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-        self.send_transmission(payload)
+        self.console.print("Starting transmit log monitoring... Press Ctrl+C to stop.", style="bold yellow")
+        file_prefix = input("Enter a name for the Parquet file (for saving transmit logs): ")
+        transmit_logs = []
+        self.transmit_count = 0
 
-        def data_callback(packet):
-            with self.lock:
-                self.received_total += 1
-                if packet.log.crc_error:
-                    self.erroneous_count += 1
-                else:
-                    self.receive_count += 1
+        # Send the first transmission
+        initial_payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+        self.send_transmission(initial_payload)
 
-                # success_rate = (self.receive_count / self.received_total) * 100 if self.received_total > 0 else 0
-                # self.console.print(
-                #     f"Total: {self.received_total} | Success: {self.receive_count} | "
-                #     f"Errors: {self.erroneous_count} | Success Rate: {success_rate:.2f}%",
-                #     end="\r", style="bold green"
-                # )
+        def transmit_log_callback(packet):
+            # with self.lock:
+            self.received_total += 1
+            # Check the log fields (using the 'log' field instead of 'reception')
+            if packet.log.crc_error:
+                self.erroneous_count += 1
+            else:
+                self.receive_count += 1
 
-                if packet.HasField("log"):
-                    reception_data = {
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "crc_error": packet.log.crc_error,
-                        "general_error": packet.log.general_error,
-                        "latitude": packet.log.gps.latitude,
-                        "longitude": packet.log.gps.longitude,
-                        "num_satellites": packet.log.gps.satellites,
-                        "rssi": packet.log.rssi,
-                        "snr": packet.log.snr,
-                        "payload": packet.log.payload,
-                    }
-                    reception_data_list.append(reception_data)
-                payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-                self.send_transmission(payload)
+            # Build and print a log message.
+            log_message = (
+                f"Transmit Log Received - "
+                f"CRC Error: {packet.log.crc_error}, "
+                f"General Error: {packet.log.general_error}, "
+                f"GPS: ({packet.log.gps.latitude}, {packet.log.gps.longitude}), "
+                f"Satellites: {packet.log.gps.satellites}, "
+                f"RSSI: {packet.log.rssi}, "
+                f"SNR: {packet.log.snr}, "
+                f"Payload: {packet.log.payload}"
+            )
+            self.console.print(log_message, style="bold blue")
+
+            # Append the log entry for future reference.
+            if packet.HasField("log"):
+                log_entry = {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "crc_error": packet.log.crc_error,
+                    "general_error": packet.log.general_error,
+                    "latitude": packet.log.gps.latitude,
+                    "longitude": packet.log.gps.longitude,
+                    "num_satellites": packet.log.gps.satellites,
+                    "rssi": packet.log.rssi,
+                    "snr": packet.log.snr,
+                    "payload": packet.log.payload,
+                }
+                transmit_logs.append(log_entry)
+
+            # Immediately send a new transmission with a fresh random payload.
+            new_payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+            self.send_transmission(new_payload)
 
         try:
-            self.ser.reset_input_buffer()  # Clears the input buffer
-            self.process_serial_packets(data_callback)
+            # self.ser.reset_input_buffer()  # Clears the input buffer
+            self.process_serial_packets(transmit_log_callback)
         except KeyboardInterrupt:
-            self.console.print("\nReception monitoring stopped.", style="bold yellow")
-            if reception_data_list:
-                save_reception_data(reception_data_list, file_prefix)
+            self.console.print("\nTransmit log monitoring stopped.", style="bold yellow")
+            # Save the collected transmit logs if any.
+            if transmit_logs:
+                save_reception_data(transmit_logs, file_prefix)
 
     def log_gps_data(self):
         def log_gps_callback(packet):

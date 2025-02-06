@@ -75,7 +75,6 @@ def main_menu():
             selected_port = ports[int(port_idx)]
             ser = open_serial_port(selected_port)
             console.print(f"Selected port: {selected_port}", style="bold green")
-            time.sleep(1)
             lora_device = LoRaDevice(ser)
             request_lora_settings(lora_device)
             lora_device.check_for_settings_packet()
@@ -87,19 +86,13 @@ def main_menu():
                 console.print("Press Ctrl+C to stop transmission.", style="bold yellow")
                 try:
                     num_bytes = int(Prompt.ask("Enter the number of random bytes to send (0-255)", default="10"))
-                    count = 0
-                    # while True:
                     if 0 <= num_bytes <= 255:
-
+                        # This call now continuously sends transmissions and logs them
                         lora_device.check_transmit_log(num_bytes)
-                        count += 1
-                        console.print(f"Transmissions: {count}, Bytes per Transmission: {num_bytes}", style="bold green", end="\r")
-                        # lora_device.check_ack()
+                        lora_device.change_state(packet_pb2.State.STANDBY)
                     else:
                         console.print("Invalid byte count.", style="bold red")
-                    time.sleep(0.2)
                 except KeyboardInterrupt:
-                    lora_device.change_state(packet_pb2.State.STANDBY)
                     console.print("\nTransmission stopped.", style="bold yellow")
             else:
                 console.print("No serial port selected. Please select a port first.", style="bold red")
@@ -125,9 +118,8 @@ def main_menu():
                     preamble = int(Prompt.ask("Enter preamble length", default="8"))
                     set_crc = parse_boolean_input(Prompt.ask("Enable cyclic redundancy check [true/false]", default="true"))
                     sync_word = int(Prompt.ask("Enter syncword", default="0xAB"), 16)
-                    func_state = parse_boolean_input(Prompt.ask("Set functional state as dedicated receiver [true/false]", default="true"))
                     update_settings(lora_device, frequency, power, bandwidth, spreading_factor,
-                                    coding_rate, preamble, set_crc, sync_word, func_state)
+                                    coding_rate, preamble, set_crc, sync_word)
                     console.print("Settings updated successfully.", style="bold green")
                     request_lora_settings(lora_device)
                     lora_device.check_for_settings_packet()

@@ -7,8 +7,7 @@ enum PacketType {
     LOG = 3;
     REQUEST = 4;
     GPS = 5;
-
-
+    ACK = 6;
 }
 
 enum State {
@@ -63,4 +62,5 @@ message Packet {
     Log log = 4;
     Request request = 5;
     Gps gps = 6;
+    bool ack = 7;
 }

@@ -11,3 +11,5 @@ receiver_tests
 
 # MacOS Garbage files
 .DS_Store
+
+.idea

@@ -11,17 +11,17 @@ public:
     RadioManager(SX1262 &radio, HardwareSerial &gpsSerial);
     bool initialize(SettingsManager &settings);
     bool configure(const SettingsManager &settings);
-    int transmit(const uint8_t *data, size_t length);
+    void transmit(const uint8_t *data, size_t length);
+    void TxSerialGPSPacket();
     void startReceive();
-    void processReceivedPacket();
+    void processReceptionLog();
     void processTransmitLog(int);
     void handleTransmitted() { transmittedFlag = true; }
     void handleReceived() { receivedFlag = true; }
     bool isTransmitted() const { return transmittedFlag; }
     bool isReceived() const { return receivedFlag; }
     State getState() { return state; }
-    void setState(State newState) { state = newState; }
-    void ProtoSendGPS();
+    void setState(State newState);
     void standby() { radio.standby(); };
 
 private:
@@ -49,6 +49,6 @@ private:
     volatile bool transmittedFlag;
     volatile bool receivedFlag;
 
-    void sendReceptionProto(const Log &log);
-    void processGPSData(Gps &gps);
+    void TxSerialLogPacket(const Log &log);
+    void ProcessGPSData(Gps &gps);
 };

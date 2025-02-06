@@ -86,8 +86,7 @@ void ApplicationController::processProtoMessage(ProtoData *data)
     }
     else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && radioMgr.getState() == State_TRANSMITTER)
     {
-        int state = radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
-        radioMgr.processTransmitLog(state);
+        radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
     }
     else if (packet.type == PacketType_REQUEST && packet.has_request)
     {
@@ -100,15 +99,11 @@ void ApplicationController::processProtoMessage(ProtoData *data)
         {
             radioMgr.standby();
             radioMgr.setState(packet.request.stateChange);
-            if (packet.request.stateChange == State_RECEIVER)
-            {
-                radioMgr.startReceive();
-            }
         }
         if (packet.request.gps == true)
         {
             flashLed();
-            radioMgr.ProtoSendGPS();
+            radioMgr.TxSerialGPSPacket();
         }
     }
 }
@@ -142,7 +137,7 @@ void ApplicationController::handleTransmissionMode()
 void ApplicationController::handleReceptionMode()
 {
     // Continuous reception logic
-    radioMgr.processReceivedPacket();
+    radioMgr.processReceptionLog();
 
     if (radioMgr.isReceived())
     {

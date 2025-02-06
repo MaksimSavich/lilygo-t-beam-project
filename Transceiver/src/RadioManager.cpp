@@ -16,9 +16,6 @@ bool RadioManager::initialize(SettingsManager &settings)
     {
         return false;
     }
-
-    radio.setPacketSentAction(transmittedISR);
-    radio.setPacketReceivedAction(receivedISR);
     configure(settings);
 
     // Since I don't send an initial message at startup, transmitted must be set true at init
@@ -85,17 +82,15 @@ bool RadioManager::configure(const SettingsManager &settings)
     return true;
 }
 
-int RadioManager::transmit(const uint8_t *data, size_t length)
+void RadioManager::transmit(const uint8_t *data, size_t length)
 {
-    // if (transmittedFlag)
-    // {
-    //     transmittedFlag = false;
-    int state = radio.startTransmit(data, length);
-
-    flashLed();
-
-    return state;
-    // }
+    if (transmittedFlag)
+    {
+        transmittedFlag = false;
+        int state = radio.startTransmit(data, length);
+        processTransmitLog(state);
+        flashLed();
+    }
 }
 
 void RadioManager::startReceive()
@@ -103,11 +98,10 @@ void RadioManager::startReceive()
     radio.startReceive();
 }
 
-void RadioManager::processReceivedPacket()
+void RadioManager::processReceptionLog()
 {
     if (receivedFlag)
     {
-        Serial.println("RECEIVED DEBUG");
         flashLed();
         receivedFlag = false;
         Log log = Log_init_zero;
@@ -117,14 +111,14 @@ void RadioManager::processReceivedPacket()
         log.payload.size = loraPacketLength;
 
         log.has_gps = true;
-        processGPSData(log.gps);
+        ProcessGPSData(log.gps);
 
         log.rssi = radio.getRSSI(false); // COME BACK TO THIS
         log.snr = radio.getSNR();
         log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
         log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
 
-        sendReceptionProto(log);
+        TxSerialLogPacket(log);
         startReceive();
     }
 }
@@ -134,16 +128,16 @@ void RadioManager::processTransmitLog(int state)
     Log log = Log_init_zero;
 
     log.has_gps = true;
-    processGPSData(log.gps);
+    ProcessGPSData(log.gps);
     log.rssi = radio.getRSSI(false); // COME BACK TO THIS
     log.snr = 0;
     log.crc_error = false;
-    log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
+    log.general_error = (state != RADIOLIB_ERR_NONE);
 
-    sendReceptionProto(log);
+    TxSerialLogPacket(log);
 }
 
-void RadioManager::processGPSData(Gps &gpsData)
+void RadioManager::ProcessGPSData(Gps &gpsData)
 {
     while (gpsSerial.available())
     {
@@ -156,7 +150,7 @@ void RadioManager::processGPSData(Gps &gpsData)
     }
 }
 
-void RadioManager::sendReceptionProto(const Log &log)
+void RadioManager::TxSerialLogPacket(const Log &log)
 {
     Packet packet = Packet_init_zero;
     packet.has_log = true;
@@ -174,13 +168,13 @@ void RadioManager::sendReceptionProto(const Log &log)
     }
 }
 
-void RadioManager::ProtoSendGPS()
+void RadioManager::TxSerialGPSPacket()
 {
     Packet packet = Packet_init_zero;
     packet.has_gps = true;
     packet.type = PacketType_GPS;
 
-    processGPSData(packet.gps);
+    ProcessGPSData(packet.gps);
 
     uint8_t buffer[Packet_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
@@ -191,4 +185,19 @@ void RadioManager::ProtoSendGPS()
         Serial.write(buffer, stream.bytes_written);
         Serial.write(END_DELIMITER, END_LEN);
     }
+}
+
+void RadioManager::setState(State newState)
+{
+    if (newState == State_RECEIVER)
+    {
+        radio.setPacketReceivedAction(receivedISR);
+        startReceive();
+    }
+    else if (newState == State_TRANSMITTER)
+    {
+        radio.setPacketSentAction(transmittedISR);
+    }
+
+    state = newState;
 }
