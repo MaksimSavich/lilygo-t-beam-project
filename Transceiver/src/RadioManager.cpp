@@ -96,6 +96,18 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
 void RadioManager::startReceive()
 {
     radio.startReceive();
+    while (!receivedFlag)
+    {
+        int currentRssi = radio.getRSSI(false);
+
+        // Ensure FIFO behavior: remove oldest if max size is reached
+        if (instantRssiCollection.size() >= 100)
+        {
+            instantRssiCollection.pop_front();
+        }
+
+        instantRssiCollection.push_back(currentRssi);
+    }
 }
 
 void RadioManager::processReceptionLog()
@@ -113,7 +125,17 @@ void RadioManager::processReceptionLog()
         log.has_gps = true;
         ProcessGPSData(log.gps);
 
-        log.rssi = radio.getRSSI(false); // COME BACK TO THIS
+        // Fill RSSI collection using bytes (400 bytes max)
+        size_t rssiCount = std::min(instantRssiCollection.size(), static_cast<size_t>(400));
+        log.rssiCollection.size = rssiCount * sizeof(int32_t); // Store actual byte size
+        // Copy RSSI values as raw int32_t values (ensures proper alignment)
+        for (size_t i = 0; i < rssiCount; ++i)
+        {
+            int32_t rssi = instantRssiCollection[i];
+            memcpy(&log.rssiCollection.bytes[i * sizeof(int32_t)], &rssi, sizeof(int32_t));
+        }
+        instantRssiCollection.clear();
+
         log.snr = radio.getSNR();
         log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
         log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
@@ -129,7 +151,6 @@ void RadioManager::processTransmitLog(int state)
 
     log.has_gps = true;
     ProcessGPSData(log.gps);
-    log.rssi = radio.getRSSI(false); // COME BACK TO THIS
     log.snr = 0;
     log.crc_error = false;
     log.general_error = (state != RADIOLIB_ERR_NONE);

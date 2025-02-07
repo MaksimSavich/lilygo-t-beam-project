@@ -1,3 +1,4 @@
+import struct
 import time
 import random
 import threading
@@ -34,7 +35,7 @@ class LoRaDevice:
 
             self.transmit_count += 1
             self.console.print(f"Sent transmission #{self.transmit_count} with payload: {payload}", style="dim")
-            time.sleep(.02)
+            time.sleep(1)
 
     def update_lora_settings(self, packet):
         """
@@ -131,8 +132,8 @@ class LoRaDevice:
                     "general_error": packet.log.general_error,
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
-                    "num_satellites": packet.log.gps.satellites,
-                    "rssi": packet.log.rssi,
+                    "satellites": packet.log.gps.satellites,
+                    "rssi_collection": list(struct.unpack(f"{len(packet.log.rssiCollection) // 4}i", packet.log.rssiCollection)),
                     "snr": packet.log.snr,
                     "payload": packet.log.payload,
                 }
@@ -171,17 +172,17 @@ class LoRaDevice:
                 self.receive_count += 1
 
             # Build and print a log message.
-            log_message = (
-                f"Transmit Log Received - "
-                f"CRC Error: {packet.log.crc_error}, "
-                f"General Error: {packet.log.general_error}, "
-                f"GPS: ({packet.log.gps.latitude}, {packet.log.gps.longitude}), "
-                f"Satellites: {packet.log.gps.satellites}, "
-                f"RSSI: {packet.log.rssi}, "
-                f"SNR: {packet.log.snr}, "
-                f"Payload: {packet.log.payload}"
-            )
-            self.console.print(log_message, style="bold blue")
+            # log_message = (
+            #     f"Transmit Log Received - "
+            #     f"CRC Error: {packet.log.crc_error}, "
+            #     f"General Error: {packet.log.general_error}, "
+            #     f"GPS: ({packet.log.gps.latitude}, {packet.log.gps.longitude}), "
+            #     f"Satellites: {packet.log.gps.satellites}, "
+            #     f"RSSI: {list(struct.unpack(f"{100}i", packet.log.rssiCollection))}, "
+            #     f"SNR: {packet.log.snr}, "
+            #     f"Payload: {packet.log.payload}"
+            # )
+            # self.console.print(log_message, style="bold blue")
 
             # Append the log entry for future reference.
             if packet.HasField("log"):
@@ -192,7 +193,7 @@ class LoRaDevice:
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
                     "num_satellites": packet.log.gps.satellites,
-                    "rssi": packet.log.rssi,
+                    "rssi": 0,
                     "snr": packet.log.snr,
                     "payload": packet.log.payload,
                 }

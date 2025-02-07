@@ -1,6 +1,7 @@
 #pragma once
 #include <RadioLib.h>
 #include <TinyGPS++.h>
+#include <deque>
 #include "SettingsManager.h"
 #include "packet.pb.h"
 #include "LoraBoards.h"
@@ -48,6 +49,7 @@ private:
     State state = State_STANDBY;
     volatile bool transmittedFlag;
     volatile bool receivedFlag;
+    std::deque<int32_t> instantRssiCollection;
 
     void TxSerialLogPacket(const Log &log);
     void ProcessGPSData(Gps &gps);

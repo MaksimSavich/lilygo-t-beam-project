@@ -49,13 +49,14 @@ typedef struct _Gps {
     uint32_t satellites;
 } Gps;
 
+typedef PB_BYTES_ARRAY_T(400) Log_rssiCollection_t;
 typedef PB_BYTES_ARRAY_T(255) Log_payload_t;
 typedef struct _Log {
     bool crc_error;
     bool general_error;
     bool has_gps;
     Gps gps;
-    float rssi;
+    Log_rssiCollection_t rssiCollection;
     float snr;
     Log_payload_t payload;
 } Log;
@@ -109,13 +110,13 @@ extern "C" {
 #define Settings_init_default                    {0, 0, 0, 0, 0, 0, 0, 0}
 #define Transmission_init_default                {{0, {0}}}
 #define Gps_init_default                         {0, 0, 0}
-#define Log_init_default                         {0, 0, false, Gps_init_default, 0, 0, {0, {0}}}
+#define Log_init_default                         {0, 0, false, Gps_init_default, {0, {0}}, 0, {0, {0}}}
 #define Request_init_default                     {0, 0, 0, _State_MIN}
 #define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Log_init_default, false, Request_init_default, false, Gps_init_default, 0}
 #define Settings_init_zero                       {0, 0, 0, 0, 0, 0, 0, 0}
 #define Transmission_init_zero                   {{0, {0}}}
 #define Gps_init_zero                            {0, 0, 0}
-#define Log_init_zero                            {0, 0, false, Gps_init_zero, 0, 0, {0, {0}}}
+#define Log_init_zero                            {0, 0, false, Gps_init_zero, {0, {0}}, 0, {0, {0}}}
 #define Request_init_zero                        {0, 0, 0, _State_MIN}
 #define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Log_init_zero, false, Request_init_zero, false, Gps_init_zero, 0}
 
@@ -135,7 +136,7 @@ extern "C" {
 #define Log_crc_error_tag                        1
 #define Log_general_error_tag                    2
 #define Log_gps_tag                              3
-#define Log_rssi_tag                             4
+#define Log_rssiCollection_tag                   4
 #define Log_snr_tag                              5
 #define Log_payload_tag                          6
 #define Request_search_tag                       1
@@ -179,7 +180,7 @@ X(a, STATIC,   SINGULAR, UINT32,   satellites,        3)
 X(a, STATIC,   SINGULAR, BOOL,     crc_error,         1) \
 X(a, STATIC,   SINGULAR, BOOL,     general_error,     2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  gps,               3) \
-X(a, STATIC,   SINGULAR, FLOAT,    rssi,              4) \
+X(a, STATIC,   SINGULAR, BYTES,    rssiCollection,    4) \
 X(a, STATIC,   SINGULAR, FLOAT,    snr,               5) \
 X(a, STATIC,   SINGULAR, BYTES,    payload,           6)
 #define Log_CALLBACK NULL
@@ -227,9 +228,9 @@ extern const pb_msgdesc_t Packet_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define Gps_size                                 24
-#define Log_size                                 298
+#define Log_size                                 696
 #define PACKET_PB_H_MAX_SIZE                     Packet_size
-#define Packet_size                              666
+#define Packet_size                              1064
 #define Request_size                             8
 #define Settings_size                            62
 #define Transmission_size                        258
