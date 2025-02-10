@@ -1,5 +1,3 @@
-import time
-import random
 import proto.packet_pb2 as packet_pb2
 from rich.console import Console
 from rich.table import Table
@@ -7,15 +5,22 @@ from rich.prompt import Prompt
 from rich.panel import Panel
 from rich.columns import Columns
 
-from lora_tui.serial_comm import list_serial_ports, open_serial_port
-from lora_tui.lora_device import LoRaDevice
-from lora_tui.settings import update_settings, request_lora_settings
-from lora_tui.utils import parse_boolean_input
+from lora_tool.serial_comm import list_serial_ports, open_serial_port
+from lora_tool.lora_device import LoRaDevice
+from lora_tool.settings import update_settings
+from lora_tool.utils import parse_boolean_input
 
 console = Console()
 
+
 def display_menu_and_settings(lora_settings, gps_data):
-    """Display the main menu options and current LoRa settings side by side."""
+    """
+    Display the main menu options and current LoRa settings side by side.
+
+    Args:
+        lora_settings: The current LoRa settings.
+        gps_data: The current GPS data.
+    """
     options_table = Table(title="Options")
     options_table.add_column("Option", justify="center")
     options_table.add_column("Description")
@@ -47,14 +52,26 @@ def display_menu_and_settings(lora_settings, gps_data):
 
     console.print(Columns([options_table, settings_table, gps_table]))
 
+
 def main_menu():
+    """
+    Display the main menu and handle user input for various operations.
+    """
     lora_device = None
     selected_port = None
 
     while True:
         console.clear()
-        port_display = "[bold red]None[/bold red]" if selected_port is None else f"[bold green]{selected_port}[/bold green]"
-        console.print(Panel(f"[bold cyan]LoRa TUI Test Application[/bold cyan] | Port: {port_display}"))
+        port_display = (
+            "[bold red]None[/bold red]"
+            if selected_port is None
+            else f"[bold green]{selected_port}[/bold green]"
+        )
+        console.print(
+            Panel(
+                f"[bold cyan]LoRa TUI Test Application[/bold cyan] | Port: {port_display}"
+            )
+        )
         current_settings = lora_device.lora_settings if lora_device else {}
         current_gps = lora_device.gps_data if lora_device else {}
         display_menu_and_settings(current_settings, current_gps)
@@ -71,21 +88,27 @@ def main_menu():
             for i, port in enumerate(ports):
                 console.print(f"[{i}] {port}")
 
-            port_idx = Prompt.ask("Enter the number of the port", choices=[str(i) for i in range(len(ports))])
+            port_idx = Prompt.ask(
+                "Enter the number of the port",
+                choices=[str(i) for i in range(len(ports))],
+            )
             selected_port = ports[int(port_idx)]
             ser = open_serial_port(selected_port)
             console.print(f"Selected port: {selected_port}", style="bold green")
             lora_device = LoRaDevice(ser)
-            request_lora_settings(lora_device)
-            lora_device.check_for_settings_packet()
-            lora_device.log_gps_data()
+            lora_device.update_status()
 
         elif choice == "2":
             if lora_device and lora_device.ser:
                 lora_device.change_state(packet_pb2.State.TRANSMITTER)
                 console.print("Press Ctrl+C to stop transmission.", style="bold yellow")
                 try:
-                    num_bytes = int(Prompt.ask("Enter the number of random bytes to send (0-255)", default="10"))
+                    num_bytes = int(
+                        Prompt.ask(
+                            "Enter the number of random bytes to send (0-255)",
+                            default="10",
+                        )
+                    )
                     if 0 <= num_bytes <= 255:
                         # This call now continuously sends transmissions and logs them
                         lora_device.check_transmit_log(num_bytes)
@@ -95,7 +118,10 @@ def main_menu():
                 except KeyboardInterrupt:
                     console.print("\nTransmission stopped.", style="bold yellow")
             else:
-                console.print("No serial port selected. Please select a port first.", style="bold red")
+                console.print(
+                    "No serial port selected. Please select a port first.",
+                    style="bold red",
+                )
                 console.input("Press Enter to return to the menu...")
 
         elif choice == "3":
@@ -104,30 +130,55 @@ def main_menu():
                 lora_device.check_received_data()
                 lora_device.change_state(packet_pb2.State.STANDBY)
             else:
-                console.print("No serial port selected. Please select a port first.", style="bold red")
+                console.print(
+                    "No serial port selected. Please select a port first.",
+                    style="bold red",
+                )
                 console.input("Press Enter to return to the menu...")
 
         elif choice == "4":
             if lora_device and lora_device.ser:
                 try:
-                    frequency = float(Prompt.ask("Enter frequency (Hz)", default="915.0"))
+                    frequency = float(
+                        Prompt.ask("Enter frequency (Hz)", default="915.0")
+                    )
                     power = int(Prompt.ask("Enter power (dBm)", default="22"))
-                    bandwidth = float(Prompt.ask("Enter bandwidth (kHz)", default="500.0"))
-                    spreading_factor = int(Prompt.ask("Enter spreading factor", default="7"))
+                    bandwidth = float(
+                        Prompt.ask("Enter bandwidth (kHz)", default="500.0")
+                    )
+                    spreading_factor = int(
+                        Prompt.ask("Enter spreading factor", default="7")
+                    )
                     coding_rate = int(Prompt.ask("Enter coding rate", default="5"))
                     preamble = int(Prompt.ask("Enter preamble length", default="8"))
-                    set_crc = parse_boolean_input(Prompt.ask("Enable cyclic redundancy check [true/false]", default="true"))
+                    set_crc = parse_boolean_input(
+                        Prompt.ask(
+                            "Enable cyclic redundancy check [true/false]",
+                            default="true",
+                        )
+                    )
                     sync_word = int(Prompt.ask("Enter syncword", default="0xAB"), 16)
-                    update_settings(lora_device, frequency, power, bandwidth, spreading_factor,
-                                    coding_rate, preamble, set_crc, sync_word)
+                    update_settings(
+                        lora_device,
+                        frequency,
+                        power,
+                        bandwidth,
+                        spreading_factor,
+                        coding_rate,
+                        preamble,
+                        set_crc,
+                        sync_word,
+                    )
                     console.print("Settings updated successfully.", style="bold green")
-                    request_lora_settings(lora_device)
-                    lora_device.check_for_settings_packet()
+                    lora_device.update_status()
                 except Exception as e:
                     console.print(f"Error updating settings: {e}", style="bold red")
                     console.input("Press Enter to return to the menu...")
             else:
-                console.print("No serial port selected. Please select a port first.", style="bold red")
+                console.print(
+                    "No serial port selected. Please select a port first.",
+                    style="bold red",
+                )
                 console.input("Press Enter to return to the menu...")
 
         elif choice == "5":

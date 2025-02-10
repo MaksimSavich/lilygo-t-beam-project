@@ -1,2 +1,0 @@
-START_MARKER = b"<START>"
-END_MARKER = b"<END>"

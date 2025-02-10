@@ -1,7 +1,7 @@
 def parse_boolean_input(value: str) -> bool:
     true_values = ["true", "t", "yes", "y", "1"]
     false_values = ["false", "f", "no", "n", "0"]
-    
+
     value = value.lower().strip()  # Normalize the input
     if value in true_values:
         return True
