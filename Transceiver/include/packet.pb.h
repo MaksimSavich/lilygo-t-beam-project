@@ -10,7 +10,8 @@
 #endif
 
 /* Enum definitions */
-typedef enum _PacketType {
+typedef enum _PacketType
+{
     PacketType_UNSPECIFIED = 0,
     PacketType_SETTINGS = 1,
     PacketType_TRANSMISSION = 2,
@@ -20,14 +21,16 @@ typedef enum _PacketType {
     PacketType_ACK = 6
 } PacketType;
 
-typedef enum _State {
+typedef enum _State
+{
     State_STANDBY = 0,
     State_TRANSMITTER = 1,
     State_RECEIVER = 2
 } State;
 
 /* Struct definitions */
-typedef struct _Settings {
+typedef struct _Settings
+{
     float frequency;
     int32_t power;
     float bandwidth;
@@ -39,11 +42,13 @@ typedef struct _Settings {
 } Settings;
 
 typedef PB_BYTES_ARRAY_T(255) Transmission_payload_t;
-typedef struct _Transmission {
+typedef struct _Transmission
+{
     Transmission_payload_t payload;
 } Transmission;
 
-typedef struct _Gps {
+typedef struct _Gps
+{
     double latitude;
     double longitude;
     uint32_t satellites;
@@ -51,7 +56,8 @@ typedef struct _Gps {
 
 typedef PB_BYTES_ARRAY_T(400) Log_rssiCollection_t;
 typedef PB_BYTES_ARRAY_T(255) Log_payload_t;
-typedef struct _Log {
+typedef struct _Log
+{
     bool crc_error;
     bool general_error;
     bool has_gps;
@@ -61,14 +67,16 @@ typedef struct _Log {
     Log_payload_t payload;
 } Log;
 
-typedef struct _Request {
+typedef struct _Request
+{
     bool search;
     bool settings;
     bool gps;
     State stateChange;
 } Request;
 
-typedef struct _Packet {
+typedef struct _Packet
+{
     PacketType type;
     bool has_settings;
     Settings settings;
@@ -83,126 +91,137 @@ typedef struct _Packet {
     bool ack;
 } Packet;
 
-
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* Helper constants for enums */
 #define _PacketType_MIN PacketType_UNSPECIFIED
 #define _PacketType_MAX PacketType_ACK
-#define _PacketType_ARRAYSIZE ((PacketType)(PacketType_ACK+1))
+#define _PacketType_ARRAYSIZE ((PacketType)(PacketType_ACK + 1))
 
 #define _State_MIN State_STANDBY
 #define _State_MAX State_RECEIVER
-#define _State_ARRAYSIZE ((State)(State_RECEIVER+1))
-
-
-
-
+#define _State_ARRAYSIZE ((State)(State_RECEIVER + 1))
 
 #define Request_stateChange_ENUMTYPE State
 
 #define Packet_type_ENUMTYPE PacketType
 
-
 /* Initializer values for message structs */
-#define Settings_init_default                    {0, 0, 0, 0, 0, 0, 0, 0}
-#define Transmission_init_default                {{0, {0}}}
-#define Gps_init_default                         {0, 0, 0}
-#define Log_init_default                         {0, 0, false, Gps_init_default, {0, {0}}, 0, {0, {0}}}
-#define Request_init_default                     {0, 0, 0, _State_MIN}
-#define Packet_init_default                      {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Log_init_default, false, Request_init_default, false, Gps_init_default, 0}
-#define Settings_init_zero                       {0, 0, 0, 0, 0, 0, 0, 0}
-#define Transmission_init_zero                   {{0, {0}}}
-#define Gps_init_zero                            {0, 0, 0}
-#define Log_init_zero                            {0, 0, false, Gps_init_zero, {0, {0}}, 0, {0, {0}}}
-#define Request_init_zero                        {0, 0, 0, _State_MIN}
-#define Packet_init_zero                         {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Log_init_zero, false, Request_init_zero, false, Gps_init_zero, 0}
+#define Settings_init_default {0, 0, 0, 0, 0, 0, 0, 0}
+#define Transmission_init_default \
+    {                             \
+        {                         \
+            0, {0}                \
+        }                         \
+    }
+#define Gps_init_default {0, 0, 0}
+#define Log_init_default                                       \
+    {                                                          \
+        0, 0, false, Gps_init_default, {0, {0}}, 0, { 0, {0} } \
+    }
+#define Request_init_default {0, 0, 0, _State_MIN}
+#define Packet_init_default {_PacketType_MIN, false, Settings_init_default, false, Transmission_init_default, false, Log_init_default, false, Request_init_default, false, Gps_init_default, 0}
+#define Settings_init_zero {0, 0, 0, 0, 0, 0, 0, 0}
+#define Transmission_init_zero \
+    {                          \
+        {                      \
+            0, {0}             \
+        }                      \
+    }
+#define Gps_init_zero {0, 0, 0}
+#define Log_init_zero                                       \
+    {                                                       \
+        0, 0, false, Gps_init_zero, {0, {0}}, 0, { 0, {0} } \
+    }
+#define Request_init_zero {0, 0, 0, _State_MIN}
+#define Packet_init_zero {_PacketType_MIN, false, Settings_init_zero, false, Transmission_init_zero, false, Log_init_zero, false, Request_init_zero, false, Gps_init_zero, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define Settings_frequency_tag                   1
-#define Settings_power_tag                       2
-#define Settings_bandwidth_tag                   3
-#define Settings_spreading_factor_tag            4
-#define Settings_coding_rate_tag                 5
-#define Settings_preamble_tag                    6
-#define Settings_set_crc_tag                     7
-#define Settings_sync_word_tag                   8
-#define Transmission_payload_tag                 1
-#define Gps_latitude_tag                         1
-#define Gps_longitude_tag                        2
-#define Gps_satellites_tag                       3
-#define Log_crc_error_tag                        1
-#define Log_general_error_tag                    2
-#define Log_gps_tag                              3
-#define Log_rssiCollection_tag                   4
-#define Log_snr_tag                              5
-#define Log_payload_tag                          6
-#define Request_search_tag                       1
-#define Request_settings_tag                     2
-#define Request_gps_tag                          3
-#define Request_stateChange_tag                  4
-#define Packet_type_tag                          1
-#define Packet_settings_tag                      2
-#define Packet_transmission_tag                  3
-#define Packet_log_tag                           4
-#define Packet_request_tag                       5
-#define Packet_gps_tag                           6
-#define Packet_ack_tag                           7
+#define Settings_frequency_tag 1
+#define Settings_power_tag 2
+#define Settings_bandwidth_tag 3
+#define Settings_spreading_factor_tag 4
+#define Settings_coding_rate_tag 5
+#define Settings_preamble_tag 6
+#define Settings_set_crc_tag 7
+#define Settings_sync_word_tag 8
+#define Transmission_payload_tag 1
+#define Gps_latitude_tag 1
+#define Gps_longitude_tag 2
+#define Gps_satellites_tag 3
+#define Log_crc_error_tag 1
+#define Log_general_error_tag 2
+#define Log_gps_tag 3
+#define Log_rssiCollection_tag 4
+#define Log_snr_tag 5
+#define Log_payload_tag 6
+#define Request_search_tag 1
+#define Request_settings_tag 2
+#define Request_gps_tag 3
+#define Request_stateChange_tag 4
+#define Packet_type_tag 1
+#define Packet_settings_tag 2
+#define Packet_transmission_tag 3
+#define Packet_log_tag 4
+#define Packet_request_tag 5
+#define Packet_gps_tag 6
+#define Packet_ack_tag 7
 
 /* Struct field encoding specification for nanopb */
-#define Settings_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, FLOAT,    frequency,         1) \
-X(a, STATIC,   SINGULAR, INT32,    power,             2) \
-X(a, STATIC,   SINGULAR, FLOAT,    bandwidth,         3) \
-X(a, STATIC,   SINGULAR, INT32,    spreading_factor,   4) \
-X(a, STATIC,   SINGULAR, INT32,    coding_rate,       5) \
-X(a, STATIC,   SINGULAR, INT32,    preamble,          6) \
-X(a, STATIC,   SINGULAR, BOOL,     set_crc,           7) \
-X(a, STATIC,   SINGULAR, UINT32,   sync_word,         8)
+#define Settings_FIELDLIST(X, a)                       \
+    X(a, STATIC, SINGULAR, FLOAT, frequency, 1)        \
+    X(a, STATIC, SINGULAR, INT32, power, 2)            \
+    X(a, STATIC, SINGULAR, FLOAT, bandwidth, 3)        \
+    X(a, STATIC, SINGULAR, INT32, spreading_factor, 4) \
+    X(a, STATIC, SINGULAR, INT32, coding_rate, 5)      \
+    X(a, STATIC, SINGULAR, INT32, preamble, 6)         \
+    X(a, STATIC, SINGULAR, BOOL, set_crc, 7)           \
+    X(a, STATIC, SINGULAR, UINT32, sync_word, 8)
 #define Settings_CALLBACK NULL
 #define Settings_DEFAULT NULL
 
 #define Transmission_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, BYTES,    payload,           1)
+    X(a, STATIC, SINGULAR, BYTES, payload, 1)
 #define Transmission_CALLBACK NULL
 #define Transmission_DEFAULT NULL
 
-#define Gps_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   latitude,          1) \
-X(a, STATIC,   SINGULAR, DOUBLE,   longitude,         2) \
-X(a, STATIC,   SINGULAR, UINT32,   satellites,        3)
+#define Gps_FIELDLIST(X, a)                      \
+    X(a, STATIC, SINGULAR, DOUBLE, latitude, 1)  \
+    X(a, STATIC, SINGULAR, DOUBLE, longitude, 2) \
+    X(a, STATIC, SINGULAR, UINT32, satellites, 3)
 #define Gps_CALLBACK NULL
 #define Gps_DEFAULT NULL
 
-#define Log_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, BOOL,     crc_error,         1) \
-X(a, STATIC,   SINGULAR, BOOL,     general_error,     2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  gps,               3) \
-X(a, STATIC,   SINGULAR, BYTES,    rssiCollection,    4) \
-X(a, STATIC,   SINGULAR, FLOAT,    snr,               5) \
-X(a, STATIC,   SINGULAR, BYTES,    payload,           6)
+#define Log_FIELDLIST(X, a)                          \
+    X(a, STATIC, SINGULAR, BOOL, crc_error, 1)       \
+    X(a, STATIC, SINGULAR, BOOL, general_error, 2)   \
+    X(a, STATIC, OPTIONAL, MESSAGE, gps, 3)          \
+    X(a, STATIC, SINGULAR, BYTES, rssiCollection, 4) \
+    X(a, STATIC, SINGULAR, FLOAT, snr, 5)            \
+    X(a, STATIC, SINGULAR, BYTES, payload, 6)
 #define Log_CALLBACK NULL
 #define Log_DEFAULT NULL
 #define Log_gps_MSGTYPE Gps
 
-#define Request_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, BOOL,     search,            1) \
-X(a, STATIC,   SINGULAR, BOOL,     settings,          2) \
-X(a, STATIC,   SINGULAR, BOOL,     gps,               3) \
-X(a, STATIC,   SINGULAR, UENUM,    stateChange,       4)
+#define Request_FIELDLIST(X, a)               \
+    X(a, STATIC, SINGULAR, BOOL, search, 1)   \
+    X(a, STATIC, SINGULAR, BOOL, settings, 2) \
+    X(a, STATIC, SINGULAR, BOOL, gps, 3)      \
+    X(a, STATIC, SINGULAR, UENUM, stateChange, 4)
 #define Request_CALLBACK NULL
 #define Request_DEFAULT NULL
 
-#define Packet_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    type,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  settings,          2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  transmission,      3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  log,               4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  request,           5) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  gps,               6) \
-X(a, STATIC,   SINGULAR, BOOL,     ack,               7)
+#define Packet_FIELDLIST(X, a)                       \
+    X(a, STATIC, SINGULAR, UENUM, type, 1)           \
+    X(a, STATIC, OPTIONAL, MESSAGE, settings, 2)     \
+    X(a, STATIC, OPTIONAL, MESSAGE, transmission, 3) \
+    X(a, STATIC, OPTIONAL, MESSAGE, log, 4)          \
+    X(a, STATIC, OPTIONAL, MESSAGE, request, 5)      \
+    X(a, STATIC, OPTIONAL, MESSAGE, gps, 6)          \
+    X(a, STATIC, SINGULAR, BOOL, ack, 7)
 #define Packet_CALLBACK NULL
 #define Packet_DEFAULT NULL
 #define Packet_settings_MSGTYPE Settings
@@ -211,12 +230,12 @@ X(a, STATIC,   SINGULAR, BOOL,     ack,               7)
 #define Packet_request_MSGTYPE Request
 #define Packet_gps_MSGTYPE Gps
 
-extern const pb_msgdesc_t Settings_msg;
-extern const pb_msgdesc_t Transmission_msg;
-extern const pb_msgdesc_t Gps_msg;
-extern const pb_msgdesc_t Log_msg;
-extern const pb_msgdesc_t Request_msg;
-extern const pb_msgdesc_t Packet_msg;
+    extern const pb_msgdesc_t Settings_msg;
+    extern const pb_msgdesc_t Transmission_msg;
+    extern const pb_msgdesc_t Gps_msg;
+    extern const pb_msgdesc_t Log_msg;
+    extern const pb_msgdesc_t Request_msg;
+    extern const pb_msgdesc_t Packet_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define Settings_fields &Settings_msg
@@ -227,13 +246,13 @@ extern const pb_msgdesc_t Packet_msg;
 #define Packet_fields &Packet_msg
 
 /* Maximum encoded size of messages (where known) */
-#define Gps_size                                 24
-#define Log_size                                 696
-#define PACKET_PB_H_MAX_SIZE                     Packet_size
-#define Packet_size                              1064
-#define Request_size                             8
-#define Settings_size                            62
-#define Transmission_size                        258
+#define Gps_size 24
+#define Log_size 696
+#define PACKET_PB_H_MAX_SIZE Packet_size
+#define Packet_size 1064
+#define Request_size 8
+#define Settings_size 62
+#define Transmission_size 258
 
 #ifdef __cplusplus
 } /* extern "C" */

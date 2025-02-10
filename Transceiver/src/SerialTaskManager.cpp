@@ -1,27 +1,44 @@
+/**
+ * @file SerialTaskManager.cpp
+ * @brief Manages serial communication tasks using FreeRTOS.
+ */
+
 #include "SerialTaskManager.h"
 
-SerialTaskManager::SerialTaskManager(size_t bufferSize, UBaseType_t queueSize)
-    : taskQueue(nullptr), taskHandle(nullptr),
-      serialBuffer(new uint8_t[bufferSize]),
-      bufferSize(bufferSize), bufferIndex(0), queueSize(queueSize) {}
+/**
+ * @brief Constructor for SerialTaskManager.
+ * @param mBufferSize Size of the serial buffer.
+ * @param mQueueSize Size of the task queue.
+ */
+SerialTaskManager::SerialTaskManager(size_t mBufferSize, UBaseType_t mQueueSize)
+    : mTaskQueue(nullptr), mTaskHandle(nullptr),
+      mSerialBuffer(new uint8_t[mBufferSize]),
+      mBufferSize(mBufferSize), mBufferIndex(0), mQueueSize(mQueueSize) {}
 
+/**
+ * @brief Destructor for SerialTaskManager.
+ */
 SerialTaskManager::~SerialTaskManager()
 {
-    if (taskHandle)
+    if (mTaskHandle)
     {
-        vTaskDelete(taskHandle);
+        vTaskDelete(mTaskHandle);
     }
-    if (taskQueue)
+    if (mTaskQueue)
     {
-        vQueueDelete(taskQueue);
+        vQueueDelete(mTaskQueue);
     }
-    delete[] serialBuffer;
+    delete[] mSerialBuffer;
 }
 
+/**
+ * @brief Initializes the SerialTaskManager.
+ * @return True if initialization is successful, false otherwise.
+ */
 bool SerialTaskManager::begin()
 {
-    taskQueue = xQueueCreate(queueSize, sizeof(ProtoData *));
-    if (!taskQueue)
+    mTaskQueue = xQueueCreate(mQueueSize, sizeof(ProtoData *));
+    if (!mTaskQueue)
     {
         Serial.println("Failed to create task queue!");
         return false;
@@ -33,7 +50,7 @@ bool SerialTaskManager::begin()
         4096,
         this,
         1,
-        &taskHandle,
+        &mTaskHandle,
         0);
 
     if (result != pdPASS)
@@ -45,6 +62,10 @@ bool SerialTaskManager::begin()
     return true;
 }
 
+/**
+ * @brief Task function for processing serial data.
+ * @param param Pointer to the SerialTaskManager instance.
+ */
 void SerialTaskManager::serialTask(void *param)
 {
     SerialTaskManager *instance = static_cast<SerialTaskManager *>(param);
@@ -55,33 +76,36 @@ void SerialTaskManager::serialTask(void *param)
     }
 }
 
+/**
+ * @brief Processes incoming serial data.
+ */
 void SerialTaskManager::processSerialData()
 {
     while (Serial.available())
     {
-        serialBuffer[bufferIndex++] = Serial.read();
+        mSerialBuffer[mBufferIndex++] = Serial.read();
 
         // Handle buffer overflow
-        if (bufferIndex >= bufferSize)
+        if (mBufferIndex >= mBufferSize)
         {
             Serial.println("Buffer overflow, resetting!");
-            bufferIndex = 0;
+            mBufferIndex = 0;
             continue;
         }
 
         // Check for end marker
-        if (bufferIndex >= END_LEN &&
-            memcmp(&serialBuffer[bufferIndex - END_LEN], END_DELIMITER, END_LEN) == 0)
+        if (mBufferIndex >= END_LEN &&
+            memcmp(&mSerialBuffer[mBufferIndex - END_LEN], END_DELIMITER, END_LEN) == 0)
         {
 
             // Find start marker in entire buffer
             uint8_t *start = static_cast<uint8_t *>(
-                memmem(serialBuffer, bufferIndex, START_DELIMITER, START_LEN));
+                memmem(mSerialBuffer, mBufferIndex, START_DELIMITER, START_LEN));
 
             if (start)
             {
                 uint8_t *payloadStart = start + START_LEN;
-                uint8_t *payloadEnd = &serialBuffer[bufferIndex - END_LEN];
+                uint8_t *payloadEnd = &mSerialBuffer[mBufferIndex - END_LEN];
 
                 if (payloadEnd > payloadStart)
                 {
@@ -89,16 +113,21 @@ void SerialTaskManager::processSerialData()
                 }
             }
 
-            bufferIndex = 0; // Reset buffer after processing
+            mBufferIndex = 0; // Reset buffer after processing
         }
     }
 }
 
+/**
+ * @brief Handles a complete message found in the serial buffer.
+ * @param start Pointer to the start of the message payload.
+ * @param end Pointer to the end of the message payload.
+ */
 void SerialTaskManager::handleCompleteMessage(uint8_t *start, uint8_t *end)
 {
     size_t dataLength = end - start;
 
-    if (uxQueueSpacesAvailable(taskQueue) == 0)
+    if (uxQueueSpacesAvailable(mTaskQueue) == 0)
     {
         Serial.println("Queue full, dropping message");
         return;
@@ -109,7 +138,7 @@ void SerialTaskManager::handleCompleteMessage(uint8_t *start, uint8_t *end)
     message->length = dataLength;
     memcpy(message->buffer, start, dataLength);
 
-    if (xQueueSend(taskQueue, &message, 0) != pdPASS)
+    if (xQueueSend(mTaskQueue, &message, 0) != pdPASS)
     {
         Serial.println("Failed to enqueue message");
         delete[] message->buffer;

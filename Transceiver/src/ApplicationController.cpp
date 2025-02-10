@@ -1,48 +1,65 @@
+/**
+ * @file ApplicationController.cpp
+ * @brief Manages the application logic, including initialization and main loop execution.
+ */
+
 #include "ApplicationController.h"
 #include "loraboards.h"
 #include <pb_decode.h>
 #include <pb_encode.h>
 
+/**
+ * @brief Constructor for ApplicationController.
+ * @param mRadioMgr Reference to the RadioManager.
+ * @param mSerialMgr Reference to the SerialTaskManager.
+ * @param mSettingsMgr Reference to the SettingsManager.
+ */
 ApplicationController::ApplicationController(
-    RadioManager &radioMgr,
-    SerialTaskManager &serialMgr,
-    SettingsManager &settingsMgr) : radioMgr(radioMgr), serialMgr(serialMgr), settingsMgr(settingsMgr), running(false) {}
+    RadioManager &mRadioMgr,
+    SerialTaskManager &mSerialMgr,
+    SettingsManager &mSettingsMgr) : mRadioMgr(mRadioMgr), mSerialMgr(mSerialMgr), mSettingsMgr(mSettingsMgr), mRunning(false) {}
 
+/**
+ * @brief Initializes the application controller and its components.
+ */
 void ApplicationController::initialize()
 {
     // Initialize components
 
-    if (!settingsMgr.initialize())
+    if (!mSettingsMgr.initialize())
     {
         Serial.println("Failed to initialize settings manager!\nSettings may be bad!");
         return;
     }
 
-    if (!serialMgr.begin())
+    if (!mSerialMgr.begin())
     {
         Serial.println("Failed to initialize serial manager!");
         return;
     }
 
-    if (!radioMgr.initialize(settingsMgr))
+    if (!mRadioMgr.initialize(mSettingsMgr))
     {
         Serial.println("Failed to initialize radio!");
         return;
     }
 
-    running = true;
+    mRunning = true;
     Serial.println("Application controller initialized");
-    settingsMgr.print();
+    mSettingsMgr.print();
 }
 
+/**
+ * @brief Main loop that runs the application logic.
+ */
 void ApplicationController::run()
 {
-    if (!running)
+    if (!mRunning)
         return;
 
     // Process incoming serial messages
     ProtoData *received = nullptr;
-    if (xQueueReceive(serialMgr.getQueue(), &received, 0) == pdPASS)
+    if (xQueueReceive(mSerialMgr.getQueue(), &received, 0) == pdPASS)
     {
         processProtoMessage(received);
         delete[] received->buffer;
@@ -50,7 +67,7 @@ void ApplicationController::run()
     }
 
     // Handle current operation mode
-    switch (radioMgr.getState())
+    switch (mRadioMgr.getState())
     {
     case State_TRANSMITTER:
         handleTransmissionMode();
@@ -66,6 +83,10 @@ void ApplicationController::run()
     }
 }
 
+/**
+ * @brief Processes a received protobuf message.
+ * @param data Pointer to the ProtoData containing the message.
+ */
 void ApplicationController::processProtoMessage(ProtoData *data)
 {
     Packet packet = Packet_init_zero;
@@ -84,62 +105,74 @@ void ApplicationController::processProtoMessage(ProtoData *data)
         flashLed();
         Serial.println("Updated LoRa settings");
     }
-    else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && radioMgr.getState() == State_TRANSMITTER)
+    else if (packet.type == PacketType_TRANSMISSION && packet.has_transmission && mRadioMgr.getState() == State_TRANSMITTER)
     {
-        radioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
+        mRadioMgr.transmit(packet.transmission.payload.bytes, packet.transmission.payload.size);
     }
     else if (packet.type == PacketType_REQUEST && packet.has_request)
     {
         if (packet.request.settings == true)
         {
             flashLed();
-            settingsMgr.sendProto();
+            mSettingsMgr.sendProto();
         }
-        if (packet.request.stateChange != radioMgr.getState())
+        if (packet.request.stateChange != mRadioMgr.getState())
         {
-            radioMgr.standby();
-            radioMgr.setState(packet.request.stateChange);
+            flashLed();
+            mRadioMgr.standby();
+            mRadioMgr.setState(packet.request.stateChange);
         }
         if (packet.request.gps == true)
         {
             flashLed();
-            radioMgr.TxSerialGPSPacket();
+            mRadioMgr.TxSerialGPSPacket();
         }
     }
 }
 
+/**
+ * @brief Updates the LoRa settings with new values.
+ * @param newSettings Reference to the new Settings structure.
+ */
 void ApplicationController::updateLoraSettings(const Settings &newSettings)
 {
-    Settings oldSettings = settingsMgr.config;
-    settingsMgr.config = newSettings;
-    if (!radioMgr.configure(settingsMgr))
+    Settings oldSettings = mSettingsMgr.mConfig;
+    mSettingsMgr.mConfig = newSettings;
+    if (!mRadioMgr.configure(mSettingsMgr))
     {
-        settingsMgr.config = oldSettings;
-        radioMgr.configure(settingsMgr);
+        mSettingsMgr.mConfig = oldSettings;
+        mRadioMgr.configure(mSettingsMgr);
         Serial.println("Failed to update settings!\nReverted to old settings!");
         return;
     }
     // Persist to storage
-    settingsMgr.save();
+    mSettingsMgr.save();
 
     Serial.println("Updated Settings:");
-    settingsMgr.print(); // Verify stored settings
+    mSettingsMgr.print(); // Verify stored settings
 }
 
+/**
+ * @brief Handles the transmission mode logic.
+ */
 void ApplicationController::handleTransmissionMode()
 {
     // Continuous transmission logic
-    if (radioMgr.isTransmitted())
+    if (mRadioMgr.isTransmitted())
     {
+        // Add transmission logic here
     }
 }
 
+/**
+ * @brief Handles the reception mode logic.
+ */
 void ApplicationController::handleReceptionMode()
 {
     // Continuous reception logic
-    radioMgr.processReceptionLog();
+    mRadioMgr.processReceptionLog();
 
-    if (radioMgr.isReceived())
+    if (mRadioMgr.isReceived())
     {
         // Optional: Send ACK if required by protocol
     }

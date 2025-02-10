@@ -1,17 +1,32 @@
+/**
+ * @file RadioManager.cpp
+ * @brief Manages the SX1262 radio module and handles transmission and reception of data.
+ */
+
 #include "RadioManager.h"
 #include <pb_encode.h>
 
 RadioManager *RadioManager::instance = nullptr;
 
+/**
+ * @brief Constructor for RadioManager.
+ * @param mRadio Reference to the SX1262 radio module.
+ * @param gpsSerial Reference to the GPS serial interface.
+ */
 RadioManager::RadioManager(SX1262 &radio, HardwareSerial &gpsSerial)
-    : radio(radio), gpsSerial(gpsSerial), transmittedFlag(false), receivedFlag(false)
+    : mRadio(radio), gpsSerial(gpsSerial), transmittedFlag(false), receivedFlag(false)
 {
     instance = this;
 }
 
+/**
+ * @brief Initializes the RadioManager.
+ * @param settings Reference to the SettingsManager.
+ * @return True if initialization is successful, false otherwise.
+ */
 bool RadioManager::initialize(SettingsManager &settings)
 {
-    int state = radio.begin();
+    int state = mRadio.begin();
     if (state != RADIOLIB_ERR_NONE)
     {
         return false;
@@ -24,56 +39,61 @@ bool RadioManager::initialize(SettingsManager &settings)
     return true;
 }
 
+/**
+ * @brief Configures the radio module with the given settings.
+ * @param settings Reference to the SettingsManager.
+ * @return True if configuration is successful, false otherwise.
+ */
 bool RadioManager::configure(const SettingsManager &settings)
 {
 
-    if (radio.setFrequency(settings.config.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
+    if (mRadio.setFrequency(settings.mConfig.frequency) == RADIOLIB_ERR_INVALID_FREQUENCY)
     {
         Serial.println("Error: Selected frequency is invalid for this module!");
         return false;
     }
 
-    if (radio.setOutputPower(settings.config.power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
+    if (mRadio.setOutputPower(settings.mConfig.power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
     {
         Serial.println("Error: Selected output power is invalid for this module!");
         return false;
     }
 
-    if (radio.setBandwidth(settings.config.bandwidth) == RADIOLIB_ERR_INVALID_BANDWIDTH)
+    if (mRadio.setBandwidth(settings.mConfig.bandwidth) == RADIOLIB_ERR_INVALID_BANDWIDTH)
     {
         Serial.println("Error: Selected bandwidth is invalid for this module!");
         return false;
     }
 
-    if (radio.setSpreadingFactor(settings.config.spreading_factor) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
+    if (mRadio.setSpreadingFactor(settings.mConfig.spreading_factor) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
     {
         Serial.println("Error: Selected spreading factor is invalid for this module!");
         return false;
     }
 
-    if (radio.setCodingRate(settings.config.coding_rate) == RADIOLIB_ERR_INVALID_CODING_RATE)
+    if (mRadio.setCodingRate(settings.mConfig.coding_rate) == RADIOLIB_ERR_INVALID_CODING_RATE)
     {
         Serial.println("Error: Selected coding rate is invalid for this module!");
     }
 
-    if (radio.setPreambleLength(settings.config.preamble) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH)
+    if (mRadio.setPreambleLength(settings.mConfig.preamble) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH)
     {
         Serial.println("Error: Selected preamble length is invalid for this module!");
         return false;
     }
 
-    if (radio.setCRC(settings.config.set_crc) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION)
+    if (mRadio.setCRC(settings.mConfig.set_crc) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION)
     {
         Serial.println("Error: Selected CRC is invalid for this module!");
         return false;
     }
 
-    if (radio.setSyncWord(settings.config.sync_word) != RADIOLIB_ERR_NONE)
+    if (mRadio.setSyncWord(settings.mConfig.sync_word) != RADIOLIB_ERR_NONE)
     {
         Serial.println("Error: Unable to set sync word!");
         return false;
     }
-    if (radio.setCurrentLimit(140) == RADIOLIB_ERR_INVALID_CURRENT_LIMIT)
+    if (mRadio.setCurrentLimit(140) == RADIOLIB_ERR_INVALID_CURRENT_LIMIT)
     {
         Serial.println(F("Selected current limit is invalid for this module!"));
         return false;
@@ -82,23 +102,31 @@ bool RadioManager::configure(const SettingsManager &settings)
     return true;
 }
 
+/**
+ * @brief Transmits data using the radio module.
+ * @param data Pointer to the data to be transmitted.
+ * @param length Length of the data to be transmitted.
+ */
 void RadioManager::transmit(const uint8_t *data, size_t length)
 {
     if (transmittedFlag)
     {
         transmittedFlag = false;
-        int state = radio.startTransmit(data, length);
+        int state = mRadio.startTransmit(data, length);
         processTransmitLog(state);
         flashLed();
     }
 }
 
+/**
+ * @brief Starts the radio module in receive mode.
+ */
 void RadioManager::startReceive()
 {
-    radio.startReceive();
+    mRadio.startReceive();
     while (!receivedFlag)
     {
-        int currentRssi = radio.getRSSI(false);
+        int currentRssi = mRadio.getRSSI(false);
 
         // Ensure FIFO behavior: remove oldest if max size is reached
         if (instantRssiCollection.size() >= 100)
@@ -110,6 +138,9 @@ void RadioManager::startReceive()
     }
 }
 
+/**
+ * @brief Processes the reception log after receiving data.
+ */
 void RadioManager::processReceptionLog()
 {
     if (receivedFlag)
@@ -118,8 +149,8 @@ void RadioManager::processReceptionLog()
         receivedFlag = false;
         Log log = Log_init_zero;
 
-        size_t loraPacketLength = radio.getPacketLength();
-        int state = radio.readData(log.payload.bytes, loraPacketLength);
+        size_t loraPacketLength = mRadio.getPacketLength();
+        int state = mRadio.readData(log.payload.bytes, loraPacketLength);
         log.payload.size = loraPacketLength;
 
         log.has_gps = true;
@@ -136,7 +167,7 @@ void RadioManager::processReceptionLog()
         }
         instantRssiCollection.clear();
 
-        log.snr = radio.getSNR();
+        log.snr = mRadio.getSNR();
         log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
         log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
 
@@ -145,19 +176,25 @@ void RadioManager::processReceptionLog()
     }
 }
 
+/**
+ * @brief Processes the transmission log after transmitting data.
+ * @param state The state returned by the radio module after transmission.
+ */
 void RadioManager::processTransmitLog(int state)
 {
     Log log = Log_init_zero;
 
     log.has_gps = true;
     ProcessGPSData(log.gps);
-    log.snr = 0;
-    log.crc_error = false;
     log.general_error = (state != RADIOLIB_ERR_NONE);
 
     TxSerialLogPacket(log);
 }
 
+/**
+ * @brief Processes GPS data and fills the provided Gps structure.
+ * @param gpsData Reference to the Gps structure to be filled.
+ */
 void RadioManager::ProcessGPSData(Gps &gpsData)
 {
     while (gpsSerial.available())
@@ -171,6 +208,10 @@ void RadioManager::ProcessGPSData(Gps &gpsData)
     }
 }
 
+/**
+ * @brief Transmits a log packet over the serial connection.
+ * @param log Reference to the Log structure to be transmitted.
+ */
 void RadioManager::TxSerialLogPacket(const Log &log)
 {
     Packet packet = Packet_init_zero;
@@ -189,6 +230,9 @@ void RadioManager::TxSerialLogPacket(const Log &log)
     }
 }
 
+/**
+ * @brief Transmits a GPS packet over the serial connection.
+ */
 void RadioManager::TxSerialGPSPacket()
 {
     Packet packet = Packet_init_zero;
@@ -208,16 +252,20 @@ void RadioManager::TxSerialGPSPacket()
     }
 }
 
+/**
+ * @brief Sets the state of the radio manager.
+ * @param newState The new state to be set.
+ */
 void RadioManager::setState(State newState)
 {
     if (newState == State_RECEIVER)
     {
-        radio.setPacketReceivedAction(receivedISR);
+        mRadio.setPacketReceivedAction(receivedISR);
         startReceive();
     }
     else if (newState == State_TRANSMITTER)
     {
-        radio.setPacketSentAction(transmittedISR);
+        mRadio.setPacketSentAction(transmittedISR);
     }
 
     state = newState;

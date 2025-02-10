@@ -1,5 +1,6 @@
-/*
- * @file        boards.cpp
+/**
+ * @file        main.cpp
+ * @brief       Main entry point for the application, initializes and runs the application controller.
  * @authors     Lewis He (lewishe@outlook.com), Maksim Savich
  * @license     MIT
  * @copyright   Copyright (c) 2024  ShenZhen XinYuan Electronic Technology Co., Ltd
@@ -22,6 +23,9 @@ RadioManager radioManager(radio, gpsSerial);
 SerialTaskManager serialManager(1024, 20);
 ApplicationController appController(radioManager, serialManager, settingsManager);
 
+/**
+ * @brief Initializes the hardware and application controller.
+ */
 void setup()
 {
     setupBoards();
@@ -31,6 +35,9 @@ void setup()
     appController.initialize();
 }
 
+/**
+ * @brief Main loop that runs the application controller.
+ */
 void loop()
 {
     appController.run();

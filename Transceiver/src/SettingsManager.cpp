@@ -1,16 +1,29 @@
+/**
+ * @file SettingsManager.cpp
+ * @brief Manages the settings for the SX1262 radio module using LittleFS and Protocol Buffers.
+ */
+
 #include "SettingsManager.h"
 #include <stdexcept>
 
-SettingsManager::SettingsManager(SX1262 &radio) : radio(radio)
+/**
+ * @brief Constructor for SettingsManager.
+ * @param mRadio Reference to the SX1262 radio module.
+ */
+SettingsManager::SettingsManager(SX1262 &radio) : mRadio(radio)
 {
-    config = Settings_init_zero;
+    mConfig = Settings_init_zero;
 }
 
+/**
+ * @brief Initializes the settings manager.
+ * @return True if settings are valid, false otherwise.
+ */
 bool SettingsManager::initialize()
 {
     initFilesystem();
 
-    if (!LittleFS.exists(filename))
+    if (!LittleFS.exists(mFilename))
     {
         createDefaults();
         save();
@@ -20,6 +33,10 @@ bool SettingsManager::initialize()
     return validate();
 }
 
+/**
+ * @brief Initializes the LittleFS filesystem.
+ * @throws std::runtime_error if filesystem initialization fails.
+ */
 void SettingsManager::initFilesystem()
 {
     if (!LittleFS.begin(true))
@@ -28,9 +45,13 @@ void SettingsManager::initFilesystem()
     }
 }
 
+/**
+ * @brief Loads the settings from the filesystem.
+ * @throws std::runtime_error if the settings file cannot be opened or decoded.
+ */
 void SettingsManager::load()
 {
-    File file = LittleFS.open(filename, FILE_READ);
+    File file = LittleFS.open(mFilename, FILE_READ);
     if (!file)
         throw std::runtime_error("Failed to open settings file");
 
@@ -40,22 +61,26 @@ void SettingsManager::load()
     file.close();
 
     pb_istream_t stream = pb_istream_from_buffer(buffer, size);
-    if (!pb_decode(&stream, Settings_fields, &config))
+    if (!pb_decode(&stream, Settings_fields, &mConfig))
     {
         throw std::runtime_error("Protobuf decode failed");
     }
 }
 
+/**
+ * @brief Saves the settings to the filesystem.
+ * @throws std::runtime_error if the settings file cannot be created or encoded.
+ */
 void SettingsManager::save()
 {
-    File file = LittleFS.open(filename, FILE_WRITE);
+    File file = LittleFS.open(mFilename, FILE_WRITE);
     if (!file)
         throw std::runtime_error("Failed to create settings file");
 
     uint8_t buffer[Settings_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-    if (!pb_encode(&stream, Settings_fields, &config))
+    if (!pb_encode(&stream, Settings_fields, &mConfig))
     {
         file.close();
         throw std::runtime_error("Protobuf encode failed");
@@ -65,33 +90,39 @@ void SettingsManager::save()
     file.close();
 }
 
+/**
+ * @brief Prints the current settings to the serial output.
+ */
 void SettingsManager::print() const
 {
     Serial.println("Settings file contents:");
     Serial.print("Frequency: ");
-    Serial.println(config.frequency);
+    Serial.println(mConfig.frequency);
     Serial.print("Power: ");
-    Serial.println(config.power);
+    Serial.println(mConfig.power);
     Serial.print("Bandwidth: ");
-    Serial.println(config.bandwidth);
+    Serial.println(mConfig.bandwidth);
     Serial.print("Spreading Factor: ");
-    Serial.println(config.spreading_factor);
+    Serial.println(mConfig.spreading_factor);
     Serial.print("Coding Rate: ");
-    Serial.println(config.coding_rate);
+    Serial.println(mConfig.coding_rate);
     Serial.print("Preamble: ");
-    Serial.println(config.preamble);
+    Serial.println(mConfig.preamble);
     Serial.print("Set CRC: ");
-    Serial.println(config.set_crc ? "True" : "False");
+    Serial.println(mConfig.set_crc ? "True" : "False");
     Serial.print("Sync Word: ");
-    Serial.println(config.sync_word);
+    Serial.println(mConfig.sync_word);
 }
 
+/**
+ * @brief Sends the current settings as a protobuf packet over the serial connection.
+ */
 void SettingsManager::sendProto()
 {
     Packet packet = Packet_init_zero;
     packet.type = PacketType_SETTINGS;
     packet.has_settings = true;
-    packet.settings = config;
+    packet.settings = mConfig;
 
     uint8_t buffer[Packet_size];
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
@@ -104,9 +135,12 @@ void SettingsManager::sendProto()
     }
 }
 
+/**
+ * @brief Creates default settings.
+ */
 void SettingsManager::createDefaults()
 {
-    config = {
+    mConfig = {
         .frequency = 915.0,
         .power = 22,
         .bandwidth = 500.0,
@@ -118,9 +152,13 @@ void SettingsManager::createDefaults()
     };
 }
 
+/**
+ * @brief Validates the current settings.
+ * @return True if settings are valid, false otherwise.
+ */
 bool SettingsManager::validate() const
 {
-    return (config.frequency >= 400.0 && config.frequency <= 960.0) &&
-           (config.power >= -3 && config.power <= 22) &&
-           (config.spreading_factor >= 5 && config.spreading_factor <= 12);
+    return (mConfig.frequency >= 400.0 && mConfig.frequency <= 960.0) &&
+           (mConfig.power >= -3 && mConfig.power <= 22) &&
+           (mConfig.spreading_factor >= 5 && mConfig.spreading_factor <= 12);
 }

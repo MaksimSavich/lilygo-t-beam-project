@@ -1,3 +1,8 @@
+/**
+ * @file SerialTaskManager.h
+ * @brief Header file for managing serial communication tasks using FreeRTOS.
+ */
+
 #pragma once
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
@@ -19,20 +24,20 @@ public:
     ~SerialTaskManager();
 
     bool begin();
-    QueueHandle_t getQueue() const { return taskQueue; }
+    QueueHandle_t getQueue() const { return mTaskQueue; }
 
 private:
     static constexpr const char *START_DELIMITER = "<START>";
     static constexpr const char *END_DELIMITER = "<END>";
-    static constexpr size_t START_LEN = 7; // strlen("<START>")
-    static constexpr size_t END_LEN = 5;   // strlen("<END>")
+    static constexpr size_t START_LEN = 7; ///< Length of the start delimiter
+    static constexpr size_t END_LEN = 5;   ///< Length of the end delimiter
 
-    QueueHandle_t taskQueue;
-    TaskHandle_t taskHandle;
-    uint8_t *serialBuffer;
-    size_t bufferSize;
-    size_t bufferIndex;
-    const UBaseType_t queueSize;
+    QueueHandle_t mTaskQueue;     ///< Handle for the FreeRTOS task queue
+    TaskHandle_t mTaskHandle;     ///< Handle for the FreeRTOS task
+    uint8_t *mSerialBuffer;       ///< Buffer for storing serial data
+    size_t mBufferSize;           ///< Size of the serial buffer
+    size_t mBufferIndex;          ///< Current index in the serial buffer
+    const UBaseType_t mQueueSize; ///< Size of the task queue
 
     static void serialTask(void *param);
     void processSerialData();
