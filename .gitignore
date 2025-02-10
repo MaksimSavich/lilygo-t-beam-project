@@ -1,6 +1,7 @@
 # Python venv
 myenv
 venv
+.venv
 
 # Directories
 __pycache__

@@ -1,3 +1,4 @@
+import time
 import proto.packet_pb2 as packet_pb2
 from rich.console import Console
 from rich.table import Table
@@ -96,6 +97,7 @@ def main_menu():
             ser = open_serial_port(selected_port)
             console.print(f"Selected port: {selected_port}", style="bold green")
             lora_device = LoRaDevice(ser)
+            time.sleep(1)
             lora_device.update_status()
 
         elif choice == "2":
