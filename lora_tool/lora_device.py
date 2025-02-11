@@ -5,6 +5,7 @@ import threading
 from datetime import datetime
 import proto.packet_pb2 as packet_pb2
 from rich.console import Console
+from rich.prompt import Prompt
 from lora_tool.constants import START_MARKER, END_MARKER
 from lora_tool.data_handler import save_reception_data
 
@@ -25,10 +26,11 @@ class LoRaDevice:
         self.count = 0
         self.lora_settings = {}
         self.gps_data = {}
+        self.payload = 0
         self.lock = threading.Lock()
         self.console = Console()
 
-    def send_transmission(self, payload):
+    def send_transmission(self, payload, delay):
         """
         Build and send a transmission packet containing the payload.
 
@@ -48,7 +50,7 @@ class LoRaDevice:
             #     f"Sent transmission #{self.transmit_count} with payload: {payload}",
             #     style="dim",
             # )
-            time.sleep(0.1)
+            time.sleep(delay)
 
     def update_lora_settings(self, packet):
         """
@@ -195,12 +197,7 @@ class LoRaDevice:
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
                     "satellites": packet.log.gps.satellites,
-                    "rssi_collection": list(
-                        struct.unpack(
-                            f"{len(packet.log.rssiCollection) // 4}i",
-                            packet.log.rssiCollection,
-                        )
-                    ),
+                    "rssi_avg": packet.log.rssi_avg,
                     "snr": packet.log.snr,
                     "payload": packet.log.payload,
                 }
@@ -227,6 +224,11 @@ class LoRaDevice:
             "Starting transmit log monitoring... Press Ctrl+C to stop.",
             style="bold yellow",
         )
+        delay = float(
+            Prompt.ask(
+                "Enter the delay between transmissions (in seconds): ", default="1.0"
+            )
+        )
         file_prefix = input(
             "Enter a name for the Parquet file (for saving transmit logs): "
         )
@@ -234,8 +236,8 @@ class LoRaDevice:
         self.transmit_count = self.erroneous_count = 0
 
         # Send the first transmission
-        initial_payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-        self.send_transmission(initial_payload)
+        self.payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+        self.send_transmission(self.payload, delay)
 
         def transmit_log_callback(packet):
             # Check the log fields (using the 'log' field instead of 'reception')
@@ -246,14 +248,11 @@ class LoRaDevice:
             if packet.HasField("log"):
                 log_entry = {
                     "timestamp": datetime.utcnow().isoformat(),
-                    "crc_error": packet.log.crc_error,
                     "general_error": packet.log.general_error,
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
                     "num_satellites": packet.log.gps.satellites,
-                    "rssi": 0,
-                    "snr": packet.log.snr,
-                    "payload": packet.log.payload,
+                    "payload": self.payload,
                 }
                 transmit_logs.append(log_entry)
                 self.console.print(
@@ -264,8 +263,8 @@ class LoRaDevice:
                 )
 
             # Immediately send a new transmission with a fresh random payload.
-            new_payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-            self.send_transmission(new_payload)
+            self.payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+            self.send_transmission(self.payload, delay)
 
         try:
             # self.ser.reset_input_buffer()  # Clears the input buffer
