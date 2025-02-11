@@ -18,7 +18,8 @@ public:
     bool configure(const SettingsManager &settings);
     void transmit(const uint8_t *data, size_t length);
     void TxSerialGPSPacket();
-    void startReceive();
+    static void startReceive(void);
+    void startChannelScan();
     void processReceptionLog();
     void processTransmitLog(int);
     void handleTransmitted() { transmittedFlag = true; }
@@ -58,12 +59,12 @@ private:
             instance->handleReceived();
     }
 
-    SX1262 &mRadio;                            ///< Reference to the SX1262 radio module
-    HardwareSerial &gpsSerial;                 ///< Reference to the GPS serial interface
-    TinyGPSPlus gps;                           ///< TinyGPSPlus instance for GPS data
-    State state = State_STANDBY;               ///< Current state of the radio manager
-    volatile bool transmittedFlag;             ///< Flag indicating if data has been transmitted
-    volatile bool receivedFlag;                ///< Flag indicating if data has been received
+    SX1262 &mRadio;                ///< Reference to the SX1262 radio module
+    HardwareSerial &gpsSerial;     ///< Reference to the GPS serial interface
+    TinyGPSPlus gps;               ///< TinyGPSPlus instance for GPS data
+    State state = State_STANDBY;   ///< Current state of the radio manager
+    volatile bool transmittedFlag; ///< Flag indicating if data has been transmitted
+    volatile bool receivedFlag;    ///< Flag indicating if data has been received
 
     void TxSerialLogPacket(const Log &log);
     void ProcessGPSData(Gps &gps);

@@ -170,10 +170,8 @@ void ApplicationController::handleTransmissionMode()
 void ApplicationController::handleReceptionMode()
 {
     // Continuous reception logic
-    mRadioMgr.startReceive();
 
     if (mRadioMgr.isReceived())
     {
-        // Optional: Send ACK if required by protocol
     }
 }

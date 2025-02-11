@@ -36,6 +36,8 @@ bool RadioManager::initialize(SettingsManager &settings)
     // Since I don't send an initial message at startup, transmitted must be set true at init
     transmittedFlag = true;
 
+    mRadio.setDio1Action(receivedISR);
+
     return true;
 }
 
@@ -121,9 +123,24 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
 /**
  * @brief Starts the radio module in receive mode.
  */
-void RadioManager::startReceive()
+void RadioManager::startReceive(void)
 {
-    mRadio.startReceive();
+    if (instance)
+    {
+        instance->mRadio.setPacketReceivedAction(receivedISR);
+        instance->mRadio.startReceive();
+        while (!(instance->isReceived()))
+        {
+            instance->mRadio.getRSSI(false);
+            flashLed();
+        }
+        instance->processReceptionLog();
+    }
+}
+
+void RadioManager::startChannelScan()
+{
+    mRadio.startChannelScan();
 }
 
 /**
@@ -239,7 +256,6 @@ void RadioManager::setState(State newState)
     if (newState == State_RECEIVER)
     {
         mRadio.setPacketReceivedAction(receivedISR);
-        startReceive();
     }
     else if (newState == State_TRANSMITTER)
     {
