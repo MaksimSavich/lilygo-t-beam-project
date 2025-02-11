@@ -25,6 +25,7 @@ class LoRaDevice:
         self.count = 0
         self.lora_settings = {}
         self.gps_data = {}
+        self.payload = 0
         self.lock = threading.Lock()
         self.console = Console()
 
@@ -195,12 +196,7 @@ class LoRaDevice:
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
                     "satellites": packet.log.gps.satellites,
-                    "rssi_collection": list(
-                        struct.unpack(
-                            f"{len(packet.log.rssiCollection) // 4}i",
-                            packet.log.rssiCollection,
-                        )
-                    ),
+                    "rssi_avg": packet.log.rssi_avg,
                     "snr": packet.log.snr,
                     "payload": packet.log.payload,
                 }
@@ -234,8 +230,8 @@ class LoRaDevice:
         self.transmit_count = self.erroneous_count = 0
 
         # Send the first transmission
-        initial_payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-        self.send_transmission(initial_payload)
+        self.payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+        self.send_transmission(self.payload)
 
         def transmit_log_callback(packet):
             # Check the log fields (using the 'log' field instead of 'reception')
@@ -246,14 +242,11 @@ class LoRaDevice:
             if packet.HasField("log"):
                 log_entry = {
                     "timestamp": datetime.utcnow().isoformat(),
-                    "crc_error": packet.log.crc_error,
                     "general_error": packet.log.general_error,
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
                     "num_satellites": packet.log.gps.satellites,
-                    "rssi": 0,
-                    "snr": packet.log.snr,
-                    "payload": packet.log.payload,
+                    "payload": self.payload,
                 }
                 transmit_logs.append(log_entry)
                 self.console.print(
@@ -264,8 +257,8 @@ class LoRaDevice:
                 )
 
             # Immediately send a new transmission with a fresh random payload.
-            new_payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-            self.send_transmission(new_payload)
+            self.payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
+            self.send_transmission(self.payload)
 
         try:
             # self.ser.reset_input_buffer()  # Clears the input buffer
