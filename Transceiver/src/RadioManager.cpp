@@ -123,18 +123,27 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
  */
 void RadioManager::startReceive()
 {
-    mRadio.startReceive();
-    while (!receivedFlag)
+    mRadio.scanChannel();
+    uint32_t irqStatus = mRadio.getIrqFlags();
+
+    if (irqStatus & (1UL << RADIOLIB_IRQ_CAD_DETECTED))
     {
-        int currentRssi = mRadio.getRSSI(false);
-
-        // Ensure FIFO behavior: remove oldest if max size is reached
-        if (instantRssiCollection.size() >= 100)
+        Serial.println("Preamble detected! Starting RSSI collection...");
+        instantRssiCollection.clear(); // Reset collection
+        mRadio.startReceive();
+        while (!receivedFlag)
         {
-            instantRssiCollection.pop_front();
-        }
+            int currentRssi = mRadio.getRSSI(false);
 
-        instantRssiCollection.push_back(currentRssi);
+            // Ensure FIFO behavior: remove oldest if max size is reached
+            if (instantRssiCollection.size() >= 100)
+            {
+                instantRssiCollection.pop_front();
+            }
+
+            instantRssiCollection.push_back(currentRssi);
+        }
+        processReceptionLog();
     }
 }
 
@@ -172,7 +181,6 @@ void RadioManager::processReceptionLog()
         log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
 
         TxSerialLogPacket(log);
-        startReceive();
     }
 }
 

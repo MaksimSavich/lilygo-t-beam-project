@@ -31,6 +31,17 @@ public:
     void standby() { mRadio.standby(); };
 
 private:
+    ChannelScanConfig_t cfg = {
+        .cad = {
+            .symNum = RADIOLIB_SX126X_CAD_ON_8_SYMB,    // Use 4 symbols for preamble detection
+            .detPeak = 22,                              // Recommended peak detection threshold
+            .detMin = 10,                               // Recommended minimum detection threshold
+            .exitMode = RADIOLIB_SX126X_CAD_GOTO_RX,    // Exit CAD mode and enter receive mode upon detection
+            .timeout = 5000,                            // CAD timeout in microseconds
+            .irqFlags = RADIOLIB_IRQ_CAD_DEFAULT_FLAGS, // CAD complete interrupt
+            .irqMask = RADIOLIB_IRQ_CAD_DEFAULT_MASK,   // Mask for CAD complete interrupt
+        },
+    };
     static constexpr const char *START_DELIMITER = "<START>";
     static constexpr const char *END_DELIMITER = "<END>";
     static constexpr size_t START_LEN = 7; ///< Length of the start delimiter
