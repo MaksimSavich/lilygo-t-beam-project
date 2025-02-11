@@ -5,6 +5,7 @@ import threading
 from datetime import datetime
 import proto.packet_pb2 as packet_pb2
 from rich.console import Console
+from rich.prompt import Prompt
 from lora_tool.constants import START_MARKER, END_MARKER
 from lora_tool.data_handler import save_reception_data
 
@@ -29,7 +30,7 @@ class LoRaDevice:
         self.lock = threading.Lock()
         self.console = Console()
 
-    def send_transmission(self, payload):
+    def send_transmission(self, payload, delay):
         """
         Build and send a transmission packet containing the payload.
 
@@ -49,7 +50,7 @@ class LoRaDevice:
             #     f"Sent transmission #{self.transmit_count} with payload: {payload}",
             #     style="dim",
             # )
-            time.sleep(0.1)
+            time.sleep(delay)
 
     def update_lora_settings(self, packet):
         """
@@ -223,6 +224,11 @@ class LoRaDevice:
             "Starting transmit log monitoring... Press Ctrl+C to stop.",
             style="bold yellow",
         )
+        delay = float(
+            Prompt.ask(
+                "Enter the delay between transmissions (in seconds): ", default="1.0"
+            )
+        )
         file_prefix = input(
             "Enter a name for the Parquet file (for saving transmit logs): "
         )
@@ -231,7 +237,7 @@ class LoRaDevice:
 
         # Send the first transmission
         self.payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-        self.send_transmission(self.payload)
+        self.send_transmission(self.payload, delay)
 
         def transmit_log_callback(packet):
             # Check the log fields (using the 'log' field instead of 'reception')
@@ -258,7 +264,7 @@ class LoRaDevice:
 
             # Immediately send a new transmission with a fresh random payload.
             self.payload = bytes([random.randint(0, 255) for _ in range(num_bytes)])
-            self.send_transmission(self.payload)
+            self.send_transmission(self.payload, delay)
 
         try:
             # self.ser.reset_input_buffer()  # Clears the input buffer
