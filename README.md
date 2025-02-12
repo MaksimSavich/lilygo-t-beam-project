@@ -4,6 +4,12 @@ This repository contains firmware and a Python application to develop and test L
 
 ---
 
+## **Attribution**
+
+- Thank you Dr. Zhichao Cao and Jingkai Lin from MSU for making this project possible and your support during development
+
+---
+
 ## **Project Overview**
 
 - **Main Transmitter Node**: Implements a LoRa-based transmitter to send data packets periodically. Logs GPS and other useful information.

@@ -120,15 +120,17 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
 
 /**
  * @brief Starts the radio module in receive mode.
+ * @details Assisted by: Jingkai Lin
  */
 void RadioManager::startReceive(void)
 {
 
-    mRadio.startReceive();
+    mRadio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF, RADIOLIB_IRQ_RX_DEFAULT_FLAGS, (1UL << RADIOLIB_IRQ_RX_DONE) | (1UL << RADIOLIB_IRQ_HEADER_VALID), 0);
 }
 
 /**
- * @brief Processes the reception log after receiving data.
+ * @brief Processes the reception log after receiving data, otherwise log RSSI values during reception.
+ * @details Assisted by: Jingkai Lin
  */
 void RadioManager::processReceptionLog()
 {
