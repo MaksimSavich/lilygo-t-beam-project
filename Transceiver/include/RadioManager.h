@@ -6,6 +6,7 @@
 #pragma once
 #include <RadioLib.h>
 #include <TinyGPS++.h>
+#include <vector>
 #include "SettingsManager.h"
 #include "packet.pb.h"
 #include "LoraBoards.h"
@@ -18,12 +19,12 @@ public:
     bool configure(const SettingsManager &settings);
     void transmit(const uint8_t *data, size_t length);
     void TxSerialGPSPacket();
-    static void startReceive(void);
-    void startChannelScan();
+    void startReceive();
     void processReceptionLog();
     void processTransmitLog(int);
     void handleTransmitted() { transmittedFlag = true; }
     void handleReceived() { receivedFlag = true; }
+    void setIrqType() { irqType = mRadio.getIrqFlags(); };
     bool isTransmitted() const { return transmittedFlag; }
     bool isReceived() const { return receivedFlag; }
     State getState() { return state; }
@@ -31,17 +32,6 @@ public:
     void standby() { mRadio.standby(); };
 
 private:
-    ChannelScanConfig_t cfg = {
-        .cad = {
-            .symNum = RADIOLIB_SX126X_CAD_ON_8_SYMB,    // Use 4 symbols for preamble detection
-            .detPeak = 22,                              // Recommended peak detection threshold
-            .detMin = 10,                               // Recommended minimum detection threshold
-            .exitMode = RADIOLIB_SX126X_CAD_GOTO_RX,    // Exit CAD mode and enter receive mode upon detection
-            .timeout = 5000,                            // CAD timeout in microseconds
-            .irqFlags = RADIOLIB_IRQ_CAD_DEFAULT_FLAGS, // CAD complete interrupt
-            .irqMask = RADIOLIB_IRQ_CAD_DEFAULT_MASK,   // Mask for CAD complete interrupt
-        },
-    };
     static constexpr const char *START_DELIMITER = "<START>";
     static constexpr const char *END_DELIMITER = "<END>";
     static constexpr size_t START_LEN = 7; ///< Length of the start delimiter
@@ -56,7 +46,10 @@ private:
     static void receivedISR()
     {
         if (instance)
+        {
             instance->handleReceived();
+            instance->setIrqType();
+        }
     }
 
     SX1262 &mRadio;                ///< Reference to the SX1262 radio module
@@ -65,6 +58,9 @@ private:
     State state = State_STANDBY;   ///< Current state of the radio manager
     volatile bool transmittedFlag; ///< Flag indicating if data has been transmitted
     volatile bool receivedFlag;    ///< Flag indicating if data has been received
+    volatile uint32_t irqType = RADIOLIB_SX126X_IRQ_NONE;
+    volatile bool instRssiFlag = false;
+    std::vector<int32_t> rssiLog;
 
     void TxSerialLogPacket(const Log &log);
     void ProcessGPSData(Gps &gps);

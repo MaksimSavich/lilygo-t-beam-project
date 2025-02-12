@@ -36,8 +36,6 @@ bool RadioManager::initialize(SettingsManager &settings)
     // Since I don't send an initial message at startup, transmitted must be set true at init
     transmittedFlag = true;
 
-    mRadio.setDio1Action(receivedISR);
-
     return true;
 }
 
@@ -125,22 +123,8 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
  */
 void RadioManager::startReceive(void)
 {
-    if (instance)
-    {
-        instance->mRadio.setPacketReceivedAction(receivedISR);
-        instance->mRadio.startReceive();
-        while (!(instance->isReceived()))
-        {
-            instance->mRadio.getRSSI(false);
-            flashLed();
-        }
-        instance->processReceptionLog();
-    }
-}
 
-void RadioManager::startChannelScan()
-{
-    mRadio.startChannelScan();
+    mRadio.startReceive();
 }
 
 /**
@@ -152,22 +136,50 @@ void RadioManager::processReceptionLog()
     {
         flashLed();
         receivedFlag = false;
-        Log log = Log_init_zero;
 
-        size_t loraPacketLength = mRadio.getPacketLength();
-        int state = mRadio.readData(log.payload.bytes, loraPacketLength);
-        log.payload.size = loraPacketLength;
+        if (irqType & RADIOLIB_SX126X_IRQ_RX_DONE)
+        {
+            instRssiFlag = false;
+            Log log = Log_init_zero;
 
-        log.has_gps = true;
-        ProcessGPSData(log.gps);
+            size_t loraPacketLength = mRadio.getPacketLength();
+            int state = mRadio.readData(log.payload.bytes, loraPacketLength);
+            log.payload.size = loraPacketLength;
 
-        log.rssi_avg = mRadio.getRSSI();
+            // Fill RSSI collection using bytes (400 bytes max)
+            size_t rssiCount = std::min(rssiLog.size(), static_cast<size_t>(400));
+            log.rssi_log.size = rssiCount * sizeof(int32_t); // Store actual byte size
+            // Copy RSSI values as raw int32_t values (ensures proper alignment)
+            for (size_t i = 0; i < rssiCount; ++i)
+            {
+                int32_t rssi = rssiLog[i];
+                memcpy(&log.rssi_log.bytes[i * sizeof(int32_t)], &rssi, sizeof(int32_t));
+            }
 
-        log.snr = mRadio.getSNR();
-        log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
-        log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
+            rssiLog.clear();
 
-        TxSerialLogPacket(log);
+            log.has_gps = true;
+            ProcessGPSData(log.gps);
+
+            log.rssi_avg = mRadio.getRSSI();
+
+            log.snr = mRadio.getSNR();
+            log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
+            log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
+
+            TxSerialLogPacket(log);
+            startReceive();
+        }
+        else
+        {
+            instRssiFlag = true;
+            mRadio.clearIrqFlags(RADIOLIB_SX126X_IRQ_ALL);
+        }
+    }
+
+    if (instRssiFlag)
+    {
+        rssiLog.push_back(mRadio.getRSSI(false));
     }
 }
 
@@ -256,6 +268,7 @@ void RadioManager::setState(State newState)
     if (newState == State_RECEIVER)
     {
         mRadio.setPacketReceivedAction(receivedISR);
+        startReceive();
     }
     else if (newState == State_TRANSMITTER)
     {

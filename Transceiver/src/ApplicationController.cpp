@@ -170,6 +170,7 @@ void ApplicationController::handleTransmissionMode()
 void ApplicationController::handleReceptionMode()
 {
     // Continuous reception logic
+    mRadioMgr.processReceptionLog();
 
     if (mRadioMgr.isReceived())
     {

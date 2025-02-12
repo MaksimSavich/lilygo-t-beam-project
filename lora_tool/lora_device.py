@@ -197,6 +197,12 @@ class LoRaDevice:
                     "latitude": packet.log.gps.latitude,
                     "longitude": packet.log.gps.longitude,
                     "satellites": packet.log.gps.satellites,
+                    "rssi_log": list(
+                        struct.unpack(
+                            f"{len(packet.log.rssi_log) // 4}i",
+                            packet.log.rssi_log,
+                        )
+                    ),
                     "rssi_avg": packet.log.rssi_avg,
                     "snr": packet.log.snr,
                     "payload": packet.log.payload,

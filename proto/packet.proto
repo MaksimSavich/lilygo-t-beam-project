@@ -43,9 +43,10 @@ message Log {
     bool crc_error = 1;
     bool general_error = 2;
     Gps gps = 3;
-    float rssi_avg = 4;
-    float snr = 5;
-    bytes payload = 6;
+    bytes rssi_log = 4;
+    float rssi_avg = 5;
+    float snr = 6;
+    bytes payload = 7;
 }
 
 message Request {
