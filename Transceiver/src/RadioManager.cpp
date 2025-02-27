@@ -124,7 +124,6 @@ void RadioManager::transmit(const uint8_t *data, size_t length)
  */
 void RadioManager::startReceive(void)
 {
-
     mRadio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF, RADIOLIB_IRQ_RX_DEFAULT_FLAGS, (1UL << RADIOLIB_IRQ_RX_DONE) | (1UL << RADIOLIB_IRQ_HEADER_VALID), 0);
 }
 
@@ -134,54 +133,62 @@ void RadioManager::startReceive(void)
  */
 void RadioManager::processReceptionLog()
 {
+
     if (receivedFlag)
     {
         flashLed();
         receivedFlag = false;
 
+        // If header valid is detected, start polling for instant RSSI.
+        if (irqType & RADIOLIB_SX126X_IRQ_HEADER_VALID)
+        {
+            instRssiFlag = true;
+        }
+
+        // If the packet is fully received, process the complete packet.
         if (irqType & RADIOLIB_SX126X_IRQ_RX_DONE)
         {
-            instRssiFlag = false;
-            Log log = Log_init_zero;
+            instRssiFlag = false; // Stop RSSI polling
 
+            Log log = Log_init_zero;
             size_t loraPacketLength = mRadio.getPacketLength();
             int state = mRadio.readData(log.payload.bytes, loraPacketLength);
             log.payload.size = loraPacketLength;
 
-            // Fill RSSI collection using bytes (400 bytes max)
+            // Limit RSSI log to 400 entries (avoid overflow)
             size_t rssiCount = std::min(rssiLog.size(), static_cast<size_t>(400));
-            log.rssi_log.size = rssiCount * sizeof(int32_t); // Store actual byte size
-            // Copy RSSI values as raw int32_t values (ensures proper alignment)
+            log.rssi_log.size = rssiCount * sizeof(int32_t);
             for (size_t i = 0; i < rssiCount; ++i)
             {
                 int32_t rssi = rssiLog[i];
                 memcpy(&log.rssi_log.bytes[i * sizeof(int32_t)], &rssi, sizeof(int32_t));
             }
-
             rssiLog.clear();
 
             log.has_gps = true;
             ProcessGPSData(log.gps);
 
             log.rssi_avg = mRadio.getRSSI();
-
             log.snr = mRadio.getSNR();
             log.crc_error = (state == RADIOLIB_ERR_CRC_MISMATCH);
             log.general_error = (state != RADIOLIB_ERR_NONE && !log.crc_error);
 
             TxSerialLogPacket(log);
-            startReceive();
-        }
-        else
-        {
-            instRssiFlag = true;
+
+            // Clear IRQ flags after full packet processing and restart reception.
             mRadio.clearIrqFlags(RADIOLIB_SX126X_IRQ_ALL);
+            startReceive();
         }
     }
 
+    // Poll RSSI continuously only while polling is enabled.
     if (instRssiFlag)
     {
-        rssiLog.push_back(mRadio.getRSSI(false));
+        // Optionally, limit the size of rssiLog to prevent overflow:
+        if (rssiLog.size() < 100)
+        {
+            rssiLog.push_back(mRadio.getRSSI(false));
+        }
     }
 }
 

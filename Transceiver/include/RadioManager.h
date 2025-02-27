@@ -24,12 +24,12 @@ public:
     void processTransmitLog(int);
     void handleTransmitted() { transmittedFlag = true; }
     void handleReceived() { receivedFlag = true; }
-    void setIrqType() { irqType = mRadio.getIrqFlags(); };
+    void setIrqType() { irqType = mRadio.getIrqFlags(); }
     bool isTransmitted() const { return transmittedFlag; }
     bool isReceived() const { return receivedFlag; }
     State getState() { return state; }
     void setState(State newState);
-    void standby() { mRadio.standby(); };
+    void standby() { mRadio.standby(); }
 
 private:
     static constexpr const char *START_DELIMITER = "<START>";
